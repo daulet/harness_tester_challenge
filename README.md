@@ -41,3 +41,38 @@ There are a handful of intentional, show-stopping bugs hidden in each part. Find
 We're not looking for improvements or fixes; just submit a list of bugs.
 
 ![PCB](./imgs/board.png)
+
+## Host simulator
+
+This repo now includes a source-level host simulator under `simulator/`. It compiles
+the original `firmware/firmware.ino` unchanged against small Arduino/Teensy API
+shims and a digital board model. It does not emulate the Teensy binary or analog
+behavior.
+
+The board model is split deliberately:
+
+- `simulator/data/schematic_harness_map.csv` contains the schematic-derived J3 to
+  CY8C9560 mapping.
+- `simulator/data/schematic_io_map.csv` contains the firmware-visible GPIO/I2C
+  mapping.
+- `simulator/data/pcb_fault_overlay.csv` contains the layout-only J3 fault. The
+  schematic says all 40 contacts attach to their matching `CBL_*` nets, while
+  the routed PCB only attaches J3 pad 1 to `CBL_0` and J3 pad 2 to both
+  `CBL_1` and `CBL_2`.
+
+Build and run:
+
+```sh
+cmake -S . -B build
+cmake --build build
+ctest --test-dir build --output-on-failure
+./build/harness_simulator_original
+```
+
+The test suite runs the unchanged firmware against both known-good and broken
+harness fixtures, then runs the explicit `simulator/variants/firmware_unmasked.ino`
+variant separately. That variant fixes only the initialization/probe blockers so
+the hidden schematic wiring mistake and the PCB overlay become observable. The
+patched schematic-only case reaches the expander and shows that logical probe
+20 drives an unconnected physical bit, while the same patched case on the
+as-drawn overlay shows the J3 pad-2 `CBL_1`/`CBL_2` short.
