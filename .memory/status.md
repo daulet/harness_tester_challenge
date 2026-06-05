@@ -1,7 +1,12 @@
 # Current status
 
-- Existing digital suite passed before analog edits: 27/27 tests.
-- ngspice 46_1 installed locally through Homebrew for boundary validation.
-- Analog matrix passes 14/14 cases against `/opt/homebrew/bin/ngspice`.
-- Post-change `cmake -S . -B build`, `cmake --build build`, and full CTest gate
-  passed 41/41 tests on 2026-06-05.
+- Branch: `simulator`.
+- Last validated commit: `0f14a53 docs: catalog simulator-backed issues`.
+- Baseline: 41/41 CTest cases passed on 2026-06-05; analog matrix 14/14 against
+  `/opt/homebrew/bin/ngspice`.
+- Active item: Q1 CY8C9560 reset fidelity and causal A06 witness.
+- Known local-only artifact: untracked `build/`.
+- Available boundaries: Apple Clang 21, CMake 4.2.3, clang-format, ngspice.
+- Missing boundary at bootstrap: `kicad-cli` is not installed or on `PATH`.
+- Required pass-close command:
+  `cmake --build build && ctest --test-dir build --output-on-failure`.
