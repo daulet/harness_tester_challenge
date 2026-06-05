@@ -135,6 +135,11 @@ struct LedState {
   bool blue = false;
 };
 
+struct ExpanderResetTransition {
+  SimTime time{};
+  bool asserted = false;
+};
+
 class Runtime {
 public:
   explicit Runtime(BoardModel model);
@@ -145,6 +150,7 @@ public:
 
   void set_harness(Harness harness);
   void set_button_pressed(bool pressed);
+  void schedule_button_state(bool pressed, SimTime delay);
   void inject_serial1_rx(const std::string &bytes);
   void transmit_gps(const std::string &bytes,
                     unsigned long baud = 9600,
@@ -178,6 +184,10 @@ public:
   LedState led_state() const;
   bool wire_begun() const;
   bool expander_accessed() const;
+  bool button_pressed() const;
+  bool expander_reset_asserted() const;
+  const std::vector<ExpanderResetTransition> &expander_reset_trace() const;
+  ExpanderPinDrive expander_pin_drive(std::size_t index) const;
   std::size_t uart_unrouted_frames() const;
   std::size_t uart_framing_errors() const;
   std::size_t uart_contention_frames() const;
@@ -235,7 +245,7 @@ private:
   };
 
   bool expander_available() const;
-  void reset_expander_state();
+  void reset_expander_state(bool reset_asserted);
   std::uint8_t read_expander_register(std::uint8_t reg);
   void write_expander_register(std::uint8_t reg, std::uint8_t value);
   std::array<ExpanderPinDrive, kExpanderPins> expander_drives() const;
@@ -263,6 +273,7 @@ private:
   std::size_t uart_unrouted_frames_ = 0;
   std::size_t uart_framing_errors_ = 0;
   std::size_t uart_contention_frames_ = 0;
+  std::vector<ExpanderResetTransition> expander_reset_trace_;
   ExpanderState expander_;
 };
 

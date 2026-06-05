@@ -229,5 +229,5 @@ executes `set_output()`, and observes all eight registers transition to `0x00`.
 ctest --test-dir build -R '^(bug_|scenario_)' --output-on-failure
 21/21 candidate witnesses passed
 
-Full suite verified: 44/44 passed
+Full suite verified: 45/45 passed
 ```

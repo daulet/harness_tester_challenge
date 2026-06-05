@@ -93,3 +93,13 @@
   `Serial1.begin(9600)` during setup.
 - Permanent rule: line models include enabled idle drive states, not only
   explicit write intervals.
+
+## 2026-06-05 - Net names do not define silicon polarity
+
+- Symptom: the `CY_RST_N` net and KiCad `RESET_N` pin name suggest active-low
+  reset, while the selected CY8C9560A pin is active-high XRES.
+- Root cause: schematic naming conflicts with the component datasheet.
+- Source evidence: Infineon datasheet 38-12036 Rev. M identifies pin 62 as
+  active-high XRES with an internal pull-down and high-Z held-reset pins.
+- Permanent rule: peripheral polarity and reset behavior come from the selected
+  silicon reference; board names remain evidence of design intent or error.

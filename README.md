@@ -68,6 +68,12 @@ contention checks. `inject_serial1_rx()` remains an explicit topology-bypassing
 helper for isolated parser and sanitizer witnesses; end-to-end scenarios use
 `transmit_gps()` instead.
 
+Button input changes can be scheduled as exact press/bounce/release waveforms.
+The CY8C9560 model follows the selected silicon rather than the misleading
+`CY_RST_N` net name: XRES is active high, POR powers up deasserted with factory
+pull-ups, held-reset pins are high impedance, and the unchanged driver advances
+through its 10 ms reset pulse plus 100 ms recovery delay in simulated time.
+
 Build and run:
 
 ```sh

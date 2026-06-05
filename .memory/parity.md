@@ -3,9 +3,9 @@
 | Boundary | Current model | Reference | Status |
 | --- | --- | --- | --- |
 | Firmware control flow | Host-compiled unchanged `.ino` plus ASan/UBSan witnesses | Source and C++ runtime diagnostics | Strong for defined behavior; known A03/A05 UB dynamically proven |
-| CY8C9560 registers | Compact hand model | Driver usage and selected datasheet facts | Direction POR corrected to input; broader timing pending |
-| GPIO electrical state | Mode/value booleans | Teensy reset/core semantics | Partial; no solved voltage feedback |
-| UART | Immediate RX byte queue, nominal TX voltage | Teensy UART + NEO-M8 serial behavior | Weak |
+| CY8C9560 registers | Compact hand model with active-high XRES/POR state | Infineon 38-12036 Rev. M and driver behavior | POR defaults, held-reset high-Z, and firmware reset timeline are source-backed; I2C timing pending |
+| GPIO electrical state | Mode/value booleans plus scheduled button waveforms | Teensy reset/core semantics | Button timing is deterministic; no solved voltage feedback |
+| UART | KiCad-routed timed 8N1 frames plus explicit direct-injection path | Teensy UART + NEO-M8 serial behavior | Direction, baud availability, and digital contention modeled; analog levels remain compact |
 | I2C | Atomic API transaction | Open-drain timed bus | Weak |
 | SD | In-memory append-only strings | SD/FAT behavior | Weak |
 | Harness digital | Boolean graph for 40 pins | Physical harness connectivity | Topology-only |

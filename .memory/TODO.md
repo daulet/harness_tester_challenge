@@ -36,9 +36,9 @@
 - [x] **Done:** deliver UART bytes according to configured baud and model TX/RX direction,
   framing, contention, and receive availability over time.
   - Prerequisite: event queue.
-- [ ] **Next:** model button bounce/press duration and reset/power-on timing.
+- [x] **Done:** model button bounce/press duration and reset/power-on timing.
   - Prerequisite: event queue.
-- [ ] Replace atomic I2C success with line-aware transactions, NACK, stuck-low,
+- [ ] **Next:** replace atomic I2C success with line-aware transactions, NACK, stuck-low,
   clock stretching, and device reset/address timing.
   - Prerequisite: event queue and Q1 expander reset fidelity.
 - [ ] Add NEO-M8 startup/default sentence cadence/checksum behavior and SD/FAT

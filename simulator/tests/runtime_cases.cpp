@@ -35,8 +35,24 @@ int main() {
   host_sim::Wire2.begin();
 
   bool ok = true;
-  ok &= require(runtime.i2c_read(0x20, 1).empty(),
-                "expander responded while reset was asserted");
+  ok &= require(!runtime.expander_reset_asserted(),
+                "expander powered on with active-high XRES asserted");
+  ok &= require(runtime.i2c_write(0x20, {0x2E}),
+                "power-on expander did not accept the device ID register select");
+  const auto power_on_id = runtime.i2c_read(0x20, 1);
+  ok &= require(power_on_id.size() == 1 && power_on_id[0] == 0x60,
+                "power-on expander did not expose POR register state");
+  ok &= require(runtime.expander_pin_drive(0).drive_mode ==
+                    host_sim::DriveMode::PullUp,
+                "power-on expander did not restore the factory pull-up mode");
+
+  runtime.digital_write(22, 1);
+  ok &= require(runtime.expander_reset_asserted() &&
+                    runtime.i2c_read(0x20, 1).empty(),
+                "expander responded while active-high XRES was asserted");
+  ok &= require(runtime.expander_pin_drive(0).drive_mode ==
+                    host_sim::DriveMode::HighImpedance,
+                "held-reset expander pin was not high impedance");
 
   runtime.digital_write(22, 0);
   ok &= require(runtime.i2c_write(0x20, {0x1D}),

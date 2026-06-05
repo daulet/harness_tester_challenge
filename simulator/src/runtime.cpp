@@ -318,6 +318,10 @@ void Runtime::set_harness(Harness harness) { harness_ = std::move(harness); }
 
 void Runtime::set_button_pressed(bool pressed) { button_pressed_ = pressed; }
 
+void Runtime::schedule_button_state(bool pressed, SimTime delay) {
+  schedule_after(delay, [this, pressed] { button_pressed_ = pressed; });
+}
+
 void Runtime::inject_serial1_rx(const std::string &bytes) {
   Serial1.push_rx(bytes);
 }
@@ -346,11 +350,12 @@ void Runtime::clear_peripherals() {
   uart_unrouted_frames_ = 0;
   uart_framing_errors_ = 0;
   uart_contention_frames_ = 0;
+  expander_reset_trace_.clear();
   Serial.clear();
   Serial1.clear();
   Wire2.clear();
   SD.clear();
-  reset_expander_state();
+  reset_expander_state(false);
 }
 
 void Runtime::schedule_at(SimTime due, EventAction action) {
@@ -519,12 +524,10 @@ void Runtime::pin_mode(std::uint8_t pin, std::uint8_t mode) {
 void Runtime::digital_write(std::uint8_t pin, std::uint8_t value) {
   pins_[pin].value = value ? 1 : 0;
   if (pin == model_.arduino_pin("CY_RST_N")) {
-    // The board net is named CY_RST_N, but the actual CY8C9560A XRES pin is
-    // active high and has an internal pull-down.
-    if (value != 0) {
-      reset_expander_state();
-    } else {
-      expander_.reset_asserted = false;
+    const bool asserted = value != 0;
+    if (asserted != expander_.reset_asserted) {
+      reset_expander_state(asserted);
+      expander_reset_trace_.push_back({now_, asserted});
     }
   }
 }
@@ -607,6 +610,23 @@ bool Runtime::wire_begun() const { return Wire2.begun(); }
 
 bool Runtime::expander_accessed() const { return expander_.accessed; }
 
+bool Runtime::button_pressed() const { return button_pressed_; }
+
+bool Runtime::expander_reset_asserted() const {
+  return expander_.reset_asserted;
+}
+
+const std::vector<ExpanderResetTransition> &Runtime::expander_reset_trace() const {
+  return expander_reset_trace_;
+}
+
+ExpanderPinDrive Runtime::expander_pin_drive(std::size_t index) const {
+  if (index >= kExpanderPins) {
+    throw std::out_of_range("expander pin index");
+  }
+  return expander_drives()[index];
+}
+
 std::size_t Runtime::uart_unrouted_frames() const {
   return uart_unrouted_frames_;
 }
@@ -658,9 +678,9 @@ bool Runtime::expander_available() const {
   return Wire2.begun() && !expander_.reset_asserted;
 }
 
-void Runtime::reset_expander_state() {
+void Runtime::reset_expander_state(bool reset_asserted) {
   expander_ = {};
-  expander_.reset_asserted = true;
+  expander_.reset_asserted = reset_asserted;
   expander_.directions.fill(0xFF);
   for (auto &bank : expander_.drive_modes) {
     bank.fill(0x00);
@@ -715,6 +735,9 @@ void Runtime::write_expander_register(std::uint8_t reg, std::uint8_t value) {
 
 std::array<ExpanderPinDrive, kExpanderPins> Runtime::expander_drives() const {
   std::array<ExpanderPinDrive, kExpanderPins> drives{};
+  if (expander_.reset_asserted) {
+    return drives;
+  }
   for (std::size_t port = 0; port < 8; ++port) {
     for (std::size_t bit = 0; bit < 8; ++bit) {
       const auto index = port * 8 + bit;
