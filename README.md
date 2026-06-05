@@ -44,21 +44,22 @@ We're not looking for improvements or fixes; just submit a list of bugs.
 
 ## Host simulator
 
-This repo now includes a source-level host simulator under `simulator/`. It compiles
+This repo includes a source-level host simulator under `simulator/`. It compiles
 the original `firmware/firmware.ino` unchanged against small Arduino/Teensy API
-shims and a digital board model. It does not emulate the Teensy binary or analog
-behavior.
+shims. The C++ runtime remains the control plane: firmware pin state is evaluated
+by the existing digital `BoardModel`, and selected digital stimuli can be passed
+to a deterministic ngspice process for first-pass electrical observations.
 
-The board model is split deliberately:
+The board model reads the KiCad sources directly:
 
-- `simulator/data/schematic_harness_map.csv` contains the schematic-derived J3 to
-  CY8C9560 mapping.
-- `simulator/data/schematic_io_map.csv` contains the firmware-visible GPIO/I2C
-  mapping.
-- `simulator/data/pcb_fault_overlay.csv` contains the layout-only J3 fault. The
-  schematic says all 40 contacts attach to their matching `CBL_*` nets, while
-  the routed PCB only attaches J3 pad 1 to `CBL_0` and J3 pad 2 to both
-  `CBL_1` and `CBL_2`.
+- `kicad_files/hardware_challenge.kicad_pcb` is the runtime connectivity source.
+- `kicad_files/hardware_challenge.kicad_sch` is the intended-design reference.
+- `simulator/tests/board_model_cases.cpp` checks J3, U4, U2, zones, vias, and
+  keepout evidence before exercising the runtime board model.
+
+Schematic-versus-PCB disagreements are reported as evidence, but the runtime
+continues on the PCB-derived graph rather than replacing it with schematic
+connectivity.
 
 Build and run:
 
@@ -69,10 +70,50 @@ ctest --test-dir build --output-on-failure
 ./build/harness_simulator_original
 ```
 
+The analog tests require an installed `ngspice` executable. CMake discovers it
+from `PATH`; when it is absent, the named analog tests are reported as skipped.
+On macOS the local requirement can be installed with `brew install ngspice`.
+The simulator never downloads models or fixture data at configure or test time.
+
+The checked-in analog layer lives under `simulator/ngspice/` and models:
+
+- 12V input, reverse blocking, a unidirectional transient clamp, and first-order
+  5V/3.3V rail propagation;
+- pull-up, pull-down, open-drain I2C, UART voltage levels, and RGB LED current;
+- one representative harness channel with series R/L, shunt C, leakage, contact
+  resistance, open/short behavior, and a deterministic intermittent interval.
+
+Run only the electrical fixtures with:
+
+```sh
+ctest --test-dir build -R '^analog_' --output-on-failure
+```
+
+Named fixtures cover nominal operation, reverse polarity, transient clamping,
+open circuit, unexpected short, leakage, elevated contact resistance,
+intermittent connection, bad pull network, LED overcurrent/no-current, UART
+level mismatch, and I2C pull failure. See `simulator/ngspice/README.md` for the
+interface, fixture schema, model provenance, thresholds, and explicit limits.
+
+This first pass is not RF, antenna, GPS acquisition, EMI, full MCU silicon,
+connector wear/vibration, or production physical validation. The regulator,
+protection, logic-driver, LED, and harness models are intentionally simplified;
+their purpose is deterministic host regression and fault observability.
+
+The dedicated source-backed bug evidence cases can be run with:
+
+```sh
+ctest --test-dir build -R '^bug_' --output-on-failure
+```
+
+The broader board-scenario checks can be run with:
+
+```sh
+ctest --test-dir build -R '^(scenario_|bug_a03|bug_a08)' --output-on-failure
+```
+
 The test suite runs the unchanged firmware against both known-good and broken
 harness fixtures, then runs the explicit `simulator/variants/firmware_unmasked.ino`
 variant separately. That variant fixes only the initialization/probe blockers so
-the hidden schematic wiring mistake and the PCB overlay become observable. The
-patched schematic-only case reaches the expander and shows that logical probe
-20 drives an unconnected physical bit, while the same patched case on the
-as-drawn overlay shows the J3 pad-2 `CBL_1`/`CBL_2` short.
+the hidden schematic wiring mistake becomes observable. The patched case reaches
+the expander and shows that logical probe 20 drives an unconnected physical bit.
