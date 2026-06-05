@@ -47,12 +47,12 @@ optical brightness, manufacturing yield, or production readiness.
 
 ### 3. A03 - NMEA staging reaches the buffer boundary unguarded
 
-- **Proof:** `nmea_buf[64]` accepts 64 bytes and leaves `nmea_idx == 64` in
-  `bug_a03_nmea_buffer_reaches_end_without_guard`; both the next byte write and
-  `buf[len] = 0` can address index 64.
+- **Proof:** `bug_a03_nmea_buffer_reaches_end_without_guard` establishes the
+  boundary state, and `sanitizer_a03_nmea_overflow` executes the unchanged
+  firmware path under ASan and reports a global-buffer-overflow at `nmea_buf`.
 - **Claude critique:** ACCEPT with narrowed wording.
-- **Boundary:** the runtime proves the overflow precondition, not an ASan-caught
-  out-of-bounds write.
+- **Boundary:** the host sanitizer proves the C++ memory violation. Exact target
+  corruption remains architecture- and layout-dependent.
 
 ### 4. A04 - Invalid RMC status is accepted as a time fix
 
@@ -65,11 +65,12 @@ optical brightness, manufacturing yield, or production readiness.
 ### 5. A05 - Forty-pin masks use narrow signed shifts
 
 - **Proof:** the source uses `1 << i` and `1 << j` while iterating 40 channels;
-  `scenario_a05_narrow_masks` locks the buggy expressions and the host simulator
-  corroborates high-pin wrap behavior.
+  `scenario_a05_narrow_masks` locks the buggy expressions and
+  `sanitizer_a05_narrow_shift` reports the shift exponent reaching the 32-bit
+  host `int` width on the unchanged firmware path.
 - **Claude critique:** ACCEPT.
 - **Boundary:** shifts at and above the signed `int` width are undefined, so the
-  portable proof is the C++ source rule, not a fixed runtime value.
+  portable proof is the C++ source rule plus UBSan, not a fixed runtime value.
 
 ### 6. A07 - Pull-down setup immediately undoes the selected output
 
@@ -201,28 +202,23 @@ optical brightness, manufacturing yield, or production readiness.
 - **Boundary:** the scenario test proves the selected pairing; the official
   package drawing supplies the mismatch premise.
 
-## Withheld twenty-first product defect
+## Additional validated twenty-first product defect
 
 **A06 - `set_output()` writes all ports to output** is a real source defect, but
-it is not counted in the 20 above because its current witness is invalid as a
-causal test. The runtime initializes every expander direction register to
-`0x00`, so `bug_a06_all_outputs` would pass even if `set_output()` never wrote a
-direction register. The real CY8C9560 power-on direction is input/high-impedance.
+it remains outside the numbered selection only to preserve the requested exact
+20. The corrected runtime initializes every expander direction register to the
+documented input state `0xFF`; `bug_a06_all_outputs` asserts that pre-state,
+executes `set_output()`, and observes all eight registers transition to `0x00`.
 
-This is both a simulator reset-model bug and a non-discriminating regression
-test. Fix the modeled reset value to `0xFF`, assert the pre-call state, and then
-retain A06 as a fully simulator-backed twenty-first issue.
+## Simulator review repairs now covered
 
-## Other simulator defects exposed by review
-
-- `scenario_a25_reverse_polarity_path` reverses the words anode and cathode in
-  its diagnostics. Its net assertions and ngspice diode orientation are correct.
-- A03 executes only the buffer-boundary precondition; add ASan/UBSan coverage or
-  a guarded memory witness before describing the overflow as dynamically caught.
-- A05 is a source assertion with host corroboration, not a portable runtime
-  regression because the bad shifts invoke undefined behavior.
-- A29's schematic value search is not bounded to the U4 symbol and should be
-  made structurally scoped.
+- A06 uses a source-correct reset state and a causal pre/action/post witness.
+- A03 and A05 execute unchanged firmware under ASan and UBSan with exact
+  diagnostic matching.
+- A25 diagnostics now label D1 pad 1 as cathode/raw input and pad 2 as
+  anode/GND.
+- A29 reads structurally attributed U4 schematic and PCB metadata. Mutation
+  controls independently alter each source and reject cross-attribution.
 
 ## Verification
 
@@ -230,5 +226,5 @@ retain A06 as a fully simulator-backed twenty-first issue.
 ctest --test-dir build -R '^(bug_|scenario_)' --output-on-failure
 21/21 candidate witnesses passed
 
-Full suite previously verified: 41/41 passed
+Full suite verified: 43/43 passed
 ```

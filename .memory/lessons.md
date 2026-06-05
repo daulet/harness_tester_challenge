@@ -62,3 +62,14 @@
 - Source evidence: targeted scenario failure and local lifetime inspection.
 - Permanent rule: keep source models alive for at least as long as references to
   parsed pads, components, nets, or graph objects.
+
+## 2026-06-05 - Resolve reviewer uncertainty with the exact witness
+
+- Symptom: pass-end review questioned whether UBSan stopped at shift exponent
+  31 before reaching the documented exponent 32 failure.
+- Root cause: the reviewer did not receive the direct sanitizer output and
+  inferred generic signed-shift behavior.
+- Source evidence: `firmware_ubsan_cases narrow-shift` exits 134 at
+  `firmware.ino:152` with `shift exponent 32 is too large for 32-bit type int`.
+- Permanent rule: when reviewer reasoning conflicts with a reproducible claim,
+  run the smallest deciding witness and preserve the exact diagnostic.

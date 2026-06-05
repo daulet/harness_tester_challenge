@@ -125,6 +125,35 @@ int main() {
                   "schematic mismatch incorrectly replaced PCB runtime connectivity");
   }
 
+  const auto u4_schematic_marker = source.find("(property \"Reference\" \"U4\"");
+  ok &= require(u4_schematic_marker != std::string::npos,
+                "schematic source did not contain the U4 metadata marker");
+  if (u4_schematic_marker != std::string::npos) {
+    constexpr auto value_property =
+        "(property \"Value\" \"CY8C9560A-24AXIT\"";
+    const auto value_marker = source.find(value_property, u4_schematic_marker);
+    ok &= require(value_marker != std::string::npos,
+                  "schematic source did not contain the U4 value property");
+    if (value_marker != std::string::npos) {
+      auto mutated = source;
+      constexpr auto value_prefix = "(property \"Value\" \"";
+      constexpr auto original_value = "CY8C9560A-24AXIT";
+      constexpr auto mutated_value = "CY8C9560A-MUTATED";
+      mutated.replace(value_marker + std::string(value_prefix).size(),
+                      std::string(original_value).size(),
+                      mutated_value);
+      const auto mutated_path =
+          data_path("build/mutated_hardware_challenge_u4_value.kicad_sch");
+      write_file(mutated_path, mutated);
+      const auto mutated_model = host_sim::BoardModel::load(pcb, mutated_path);
+      const auto& mutated_u4 = mutated_model.component("U4");
+      ok &= require(mutated_u4.schematic_value == mutated_value,
+                    "U4 schematic value mutation did not reach structured metadata");
+      ok &= require(mutated_u4.pcb_value == original_value,
+                    "U4 schematic value mutation contaminated PCB metadata");
+    }
+  }
+
   const auto pcb_source = read_file(pcb);
   const auto j3_marker = pcb_source.find("(property \"Reference\" \"J3\"");
   ok &= require(j3_marker != std::string::npos,
@@ -172,6 +201,37 @@ int main() {
                     "route mismatch did not produce evidence");
       ok &= require(!mutated_model.pcb_connected("CY_SCL", "U2", "16", "U4", "24"),
                     "route mismatch incorrectly retained physical connectivity");
+    }
+  }
+
+  const auto u4_pcb_marker = pcb_source.find("(property \"Reference\" \"U4\"");
+  ok &= require(u4_pcb_marker != std::string::npos,
+                "PCB source did not contain the U4 metadata marker");
+  if (u4_pcb_marker != std::string::npos) {
+    constexpr auto footprint_atom =
+        "(footprint \"Package_QFP:TQFP-100_12x12mm_P0.4mm\"";
+    const auto footprint_marker = pcb_source.rfind(footprint_atom, u4_pcb_marker);
+    ok &= require(footprint_marker != std::string::npos,
+                  "PCB source did not contain the U4 footprint atom");
+    if (footprint_marker != std::string::npos) {
+      auto mutated = pcb_source;
+      constexpr auto footprint_prefix = "(footprint \"";
+      constexpr auto original_footprint =
+          "Package_QFP:TQFP-100_12x12mm_P0.4mm";
+      constexpr auto mutated_footprint =
+          "Package_QFP:TQFP-100_MUTATED";
+      mutated.replace(footprint_marker + std::string(footprint_prefix).size(),
+                      std::string(original_footprint).size(),
+                      mutated_footprint);
+      const auto mutated_path =
+          data_path("build/mutated_hardware_challenge_u4_footprint.kicad_pcb");
+      write_file(mutated_path, mutated);
+      const auto mutated_model = host_sim::BoardModel::load(mutated_path, schematic);
+      const auto& mutated_u4 = mutated_model.component("U4");
+      ok &= require(mutated_u4.pcb_footprint == mutated_footprint,
+                    "U4 PCB footprint mutation did not reach structured metadata");
+      ok &= require(mutated_u4.schematic_footprint == original_footprint,
+                    "U4 PCB footprint mutation contaminated schematic metadata");
     }
   }
 

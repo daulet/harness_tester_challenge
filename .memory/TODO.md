@@ -19,18 +19,18 @@
     so runtime changes immediately receive sanitizer coverage.
 - [x] **Done:** fix A25 terminal diagnostics and replace A29's unscoped source search with
   structural schematic data exposed by `BoardModel`.
-- [ ] **Next:** add mutation-style negative controls for high-value witnesses so removal
+- [x] **Done:** add mutation-style negative controls for high-value witnesses so removal
   of the target action makes the test fail.
-- [ ] Refresh `SIMULATOR_20_ISSUES.md` and `SIMULATOR_BUG_EVIDENCE.md` after Q1
+- [x] **Done:** refresh `SIMULATOR_20_ISSUES.md` and `SIMULATOR_BUG_EVIDENCE.md` after Q1
   so A06 no longer appears withheld for a simulator defect that has been fixed.
   - Completion gate for Q1: A06 has a causal transition witness, sanitizer cases
     fail on the known original-firmware UB and pass on bounded controls, all
-    source-scenario diagnostics are structurally scoped, and the normal 41-test
+    source-scenario diagnostics are structurally scoped, and the normal 43-test
     baseline has no regression.
 
 ## Q2 - Event-driven runtime and peripheral fidelity
 
-- [ ] Add a deterministic event queue and advance it through `delay()` and
+- [ ] **Next:** add a deterministic event queue and advance it through `delay()` and
   explicit time stepping.
   - Prerequisite: Q1 complete.
 - [ ] Deliver UART bytes according to configured baud and model TX/RX direction,
