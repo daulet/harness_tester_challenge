@@ -46,7 +46,7 @@
 - [x] **Done:** add SD/FAT latency, capacity, removal, FILE_WRITE append
   semantics, and partial-write failures.
   - Prerequisite: event queue.
-- [ ] **Next:** model finite Teensy UART RX capacity, overrun accounting, and firmware
+- [x] **Done:** model finite Teensy UART RX capacity, overrun accounting, and firmware
   polling under continuous default GPS traffic.
   - Prerequisite: timed UART and NEO-M8 sentence cadence.
   - Completion gate for Q2: deterministic tests prove byte availability,
@@ -56,7 +56,7 @@
 
 ## Q3 - KiCad-derived closed-loop electrical simulation
 
-- [ ] Generate board electrical configuration from parsed KiCad component,
+- [ ] **Next:** generate board electrical configuration from parsed KiCad component,
   value, pin, and net data instead of duplicating topology in fixtures.
   - Prerequisite: Q1 structural BoardModel accessors.
 - [ ] Export actual MCU and expander pin modes/drives to the electrical solver and

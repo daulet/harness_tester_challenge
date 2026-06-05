@@ -64,9 +64,15 @@ connectivity.
 The runtime uses a deterministic microsecond event queue. Arduino `delay()`
 advances simulated time without sleeping, and physical GPS UART transmissions
 use KiCad-derived U2/U3 pad nets, 8N1 frame timing, configured baud, and
-contention checks. `inject_serial1_rx()` remains an explicit topology-bypassing
-helper for isolated parser and sanitizer witnesses; end-to-end scenarios use
-`transmit_gps()` instead.
+contention checks. Physical `Serial1` reception follows the PJRC Teensy 4.x
+[`Serial1` allocation](https://github.com/PaulStoffregen/cores/blob/master/teensy4/HardwareSerial1.cpp)
+and [ring implementation](https://github.com/PaulStoffregen/cores/blob/master/teensy4/HardwareSerial.cpp):
+the default 64-entry software ring has 63 usable bytes, newly arriving bytes are
+dropped when full, and the runtime records the lost-byte count. Tests can
+configure a larger receive capacity to represent added receive memory.
+`inject_serial1_rx_bypass_capacity()` remains an explicit helper for isolated
+parser and sanitizer witnesses; end-to-end scenarios use `transmit_gps()`
+instead.
 
 `GpsReceiver` layers a deterministic NEO-M8 source profile over that UART
 transport: startup TXT, one-second navigation epochs, the factory-enabled NMEA
@@ -74,7 +80,7 @@ sentence set, concurrent-mode `GN` navigation talkers with GNSS-specific GSV tal
 pre-fix/post-fix status, and generated or intentionally corrupted checksums.
 The default cold-acquisition interval is 26 seconds. This models documented
 receiver output behavior, not RF acquisition, satellite dynamics, ephemeris,
-leap seconds, or a finite MCU receive FIFO.
+leap seconds, hardware FIFO/interrupt latency, or flow control.
 
 Button input changes can be scheduled as exact press/bounce/release waveforms.
 The CY8C9560 model follows the selected silicon rather than the misleading

@@ -111,7 +111,7 @@ bool run_case(const Case& test_case) {
   runtime.set_i2c_bus_mode(host_sim::I2cBusMode::Ideal);
   runtime.set_harness(test_case.use_broken_harness ? broken_harness() : known_good_harness());
   runtime.set_button_pressed(false);
-  runtime.inject_serial1_rx(kValidNmea);
+  runtime.inject_serial1_rx_bypass_capacity(kValidNmea);
 
   setup();
   loop();

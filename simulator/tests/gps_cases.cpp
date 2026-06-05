@@ -105,6 +105,7 @@ int main() {
               "GPS defaults diverged from the NEO-M8 source profile");
   {
     host_sim::Runtime runtime(corrected_board_model());
+    runtime.configure_serial1_rx_capacity(4096);
     host_sim::Serial1.begin(9600);
     host_sim::GpsReceiver receiver(runtime);
     host_sim::GpsReceiverConfig config;
@@ -155,6 +156,7 @@ int main() {
 
   {
     host_sim::Runtime runtime(corrected_board_model());
+    runtime.configure_serial1_rx_capacity(4096);
     host_sim::Serial1.begin(9600);
     host_sim::GpsReceiver receiver(runtime);
     host_sim::GpsReceiverConfig config;

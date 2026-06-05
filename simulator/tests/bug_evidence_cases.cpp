@@ -5,6 +5,8 @@
 #include <utility>
 
 #include "CY8C9560.h"
+#include "board_fixture.h"
+#include "host_simulator/gps.h"
 #include "host_simulator/runtime.h"
 
 extern void setup();
@@ -39,6 +41,13 @@ host_sim::BoardModel board_model() {
   return host_sim::BoardModel::load(
       data_path("kicad_files/hardware_challenge.kicad_pcb"),
       data_path("kicad_files/hardware_challenge.kicad_sch"));
+}
+
+host_sim::BoardModel corrected_uart_board_model(const std::string &filename) {
+  const auto pcb = test_support::corrected_uart_pcb(
+      HOST_SIM_ROOT, filename);
+  return host_sim::BoardModel::load(
+      pcb, data_path("kicad_files/hardware_challenge.kicad_sch"));
 }
 
 host_sim::Harness expected_harness() {
@@ -97,10 +106,20 @@ std::unique_ptr<host_sim::Runtime> make_runtime(host_sim::Harness harness = {}) 
   return runtime;
 }
 
+std::unique_ptr<host_sim::Runtime>
+make_corrected_uart_runtime(const std::string &filename,
+                            host_sim::Harness harness = {}) {
+  auto runtime = std::make_unique<host_sim::Runtime>(
+      corrected_uart_board_model(filename));
+  runtime->set_i2c_bus_mode(host_sim::I2cBusMode::Ideal);
+  runtime->set_harness(std::move(harness));
+  return runtime;
+}
+
 void prepare_for_test(host_sim::Runtime& runtime, const std::string& nmea,
                       bool physically_pressed = false) {
   runtime.set_button_pressed(physically_pressed);
-  runtime.inject_serial1_rx(nmea);
+  runtime.inject_serial1_rx_bypass_capacity(nmea);
   setup();
   loop();
 }
@@ -127,13 +146,73 @@ bool run_a02_missing_output_modes() {
 
 bool run_a03_nmea_buffer_reaches_end_without_guard() {
   auto runtime = make_runtime();
-  runtime->inject_serial1_rx(std::string(64, 'x'));
+  runtime->inject_serial1_rx_bypass_capacity(std::string(64, 'x'));
   setup();
   loop();
   return require(nmea_idx == 64,
                  "A03: NMEA staging buffer did not reach its last valid index") &&
       require(!time_fixed,
               "A03: unterminated NMEA bytes unexpectedly produced a time lock");
+}
+
+bool run_a03_uart_overrun_path() {
+  using namespace std::chrono_literals;
+
+  // The unmasked target supplies the intended timed I2C workload that A01
+  // prevents the original firmware from reaching.
+  auto runtime = make_corrected_uart_runtime(
+      "corrected_uart_overrun_hardware_challenge.kicad_pcb",
+      expected_harness());
+  runtime->set_button_pressed(true);
+  runtime->inject_serial1_rx_bypass_capacity(kValidGprmc);
+  setup();
+  loop();
+
+  host_sim::GpsReceiver receiver(*runtime);
+  host_sim::GpsReceiverConfig config;
+  config.acquisition_time = host_sim::SimTime::zero();
+  receiver.start(config);
+  runtime->advance_by(100ms);
+  loop();
+  loop();
+  loop();
+
+  runtime->advance_by(850ms);
+  runtime->set_button_pressed(false);
+  loop();
+  const auto overruns_after_test = runtime->serial1_rx_overruns();
+  const auto buffered_after_test = host_sim::Serial1.available();
+
+  loop();
+  return require(overruns_after_test > 0 && buffered_after_test == 63,
+                 "A03: blocking harness work did not overrun Teensy Serial1") &&
+      require(nmea_idx == 63,
+              "A03: truncated physical GGA did not fill the staging buffer") &&
+      require(runtime->serial1_rx_overruns() > overruns_after_test,
+              "A03: continuous GPS traffic stopped during repeated tests");
+}
+
+bool run_uart_polling_control() {
+  using namespace std::chrono_literals;
+
+  auto runtime = make_corrected_uart_runtime(
+      "corrected_uart_polling_hardware_challenge.kicad_pcb",
+      expected_harness());
+  runtime->set_button_pressed(true);
+  runtime->inject_serial1_rx_bypass_capacity(kValidGprmc);
+  setup();
+  loop();
+
+  host_sim::GpsReceiver receiver(*runtime);
+  host_sim::GpsReceiverConfig config;
+  config.acquisition_time = host_sim::SimTime::zero();
+  receiver.start(config);
+  for (int poll = 0; poll < 150; ++poll) {
+    runtime->advance_by(20ms);
+    loop();
+  }
+  return require(runtime->serial1_rx_overruns() == 0,
+                 "frequent firmware polling unexpectedly overran Serial1");
 }
 
 bool run_a04_invalid_status_accepted() {
@@ -157,7 +236,7 @@ bool run_a04_checksum_ignored() {
 bool run_nmea_crlf_empty_pass() {
   auto runtime = make_runtime(expected_harness());
   runtime->set_button_pressed(true);
-  runtime->inject_serial1_rx(kTxtThenGprmc);
+  runtime->inject_serial1_rx_bypass_capacity(kTxtThenGprmc);
   setup();
 
   loop();
@@ -187,7 +266,7 @@ bool run_sd_partial_log_accepted() {
 bool run_sd_removed_before_open() {
   auto runtime = make_runtime(expected_harness());
   runtime->set_button_pressed(false);
-  runtime->inject_serial1_rx(kValidGprmc);
+  runtime->inject_serial1_rx_bypass_capacity(kValidGprmc);
   setup();
   runtime->schedule_sd_available(false, host_sim::SimTime::zero());
   loop();
@@ -316,6 +395,8 @@ bool run_case(const std::string& name) {
   if (name == "a03_nmea_buffer_reaches_end_without_guard") {
     return run_a03_nmea_buffer_reaches_end_without_guard();
   }
+  if (name == "a03_uart_overrun_path") return run_a03_uart_overrun_path();
+  if (name == "uart_polling_control") return run_uart_polling_control();
   if (name == "a04_invalid_status_accepted") return run_a04_invalid_status_accepted();
   if (name == "a04_checksum_ignored") return run_a04_checksum_ignored();
   if (name == "nmea_crlf_empty_pass") {

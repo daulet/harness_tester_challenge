@@ -300,6 +300,10 @@ add_test(NAME bug_a01_missing_begin COMMAND firmware_original_bug_cases a01_miss
 add_test(NAME bug_a02_missing_output_modes COMMAND firmware_original_bug_cases a02_missing_output_modes)
 add_test(NAME bug_a03_nmea_buffer_reaches_end_without_guard
   COMMAND firmware_original_bug_cases a03_nmea_buffer_reaches_end_without_guard)
+add_test(NAME bug_a03_uart_overrun_path
+  COMMAND firmware_unmasked_bug_cases a03_uart_overrun_path)
+add_test(NAME firmware_uart_polling_control
+  COMMAND firmware_unmasked_bug_cases uart_polling_control)
 add_test(NAME bug_a04_invalid_status_accepted COMMAND firmware_unmasked_bug_cases a04_invalid_status_accepted)
 add_test(NAME bug_a04_checksum_ignored
   COMMAND firmware_unmasked_bug_cases a04_checksum_ignored)

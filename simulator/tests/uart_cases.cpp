@@ -76,6 +76,27 @@ int main() {
 
   {
     host_sim::Runtime runtime(board_model(corrected_pcb));
+    host_sim::Serial1.begin(9600);
+    runtime.transmit_gps(std::string(70, 'R'));
+    runtime.advance_to(73ms);
+    ok &= require(runtime.serial1_rx_capacity() == 63 &&
+                      host_sim::Serial1.available() == 63 &&
+                      runtime.serial1_rx_overruns() == 7,
+                  "Teensy Serial1 did not drop new bytes after 63 buffered bytes");
+    while (host_sim::Serial1.available()) {
+      ok &= require(host_sim::Serial1.read() == 'R',
+                    "Serial1 overrun corrupted an already buffered byte");
+    }
+    runtime.transmit_gps("S");
+    runtime.advance_by(1042us);
+    ok &= require(host_sim::Serial1.available() == 1 &&
+                      host_sim::Serial1.read() == 'S' &&
+                      runtime.serial1_rx_overruns() == 7,
+                  "draining Serial1 did not free receive capacity");
+  }
+
+  {
+    host_sim::Runtime runtime(board_model(corrected_pcb));
     host_sim::Serial1.begin(115200);
     runtime.transmit_gps("A", 9600);
     runtime.advance_to(1042us);
@@ -107,10 +128,12 @@ int main() {
 
   {
     host_sim::Runtime runtime(board_model(original_pcb));
-    runtime.inject_serial1_rx("Z");
+    runtime.configure_serial1_rx_capacity(1);
+    runtime.inject_serial1_rx_bypass_capacity("XYZ");
     ok &= require(
-        host_sim::Serial1.available() == 1 && host_sim::Serial1.read() == 'Z',
-        "direct parser injection unexpectedly used physical UART timing");
+        host_sim::Serial1.available() == 3 && host_sim::Serial1.read() == 'X' &&
+            runtime.serial1_rx_overruns() == 0,
+        "direct parser injection unexpectedly used physical UART buffering");
   }
 
   return ok ? EXIT_SUCCESS : EXIT_FAILURE;

@@ -242,12 +242,15 @@ diagnostic still fires when removal precedes the open.
   anode/GND.
 - A29 reads structurally attributed U4 schematic and PCB metadata. Mutation
   controls independently alter each source and reject cross-attribution.
+- A03 now includes the Teensy 4.x 63-byte usable Serial1 ring, drop-new overrun
+  accounting, a blocking-harness physical trigger, and a frequent-polling
+  control. This strengthens A03 rather than inventing another defect ID.
 
 ## Verification
 
 ```text
 ctest --test-dir build -R '^(bug_|scenario_)' --output-on-failure
-23/23 candidate witnesses passed
+24/24 candidate witnesses passed
 
-Full suite verified: 53/53 passed
+Full suite verified: 55/55 passed
 ```

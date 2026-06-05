@@ -69,16 +69,26 @@ public:
   const std::string &output() const;
   bool begun() const;
   unsigned long baud() const;
+  std::size_t rx_capacity() const;
+  std::size_t rx_overruns() const;
 
 protected:
   std::size_t write_bytes(const std::string &bytes) override;
 
 private:
+  void receive_rx(char value);
+  void set_rx_capacity(std::size_t capacity);
+  void compact_rx();
+
+  friend class Runtime;
+
   Port port_;
   unsigned long baud_ = 0;
   std::string rx_;
   std::string tx_;
   std::size_t rx_offset_ = 0;
+  std::size_t rx_capacity_ = 0;
+  std::size_t rx_overruns_ = 0;
 };
 
 struct SdCardConfig {
@@ -205,7 +215,8 @@ public:
   void set_harness(Harness harness);
   void set_button_pressed(bool pressed);
   void schedule_button_state(bool pressed, SimTime delay);
-  void inject_serial1_rx(const std::string &bytes);
+  void configure_serial1_rx_capacity(std::size_t capacity);
+  void inject_serial1_rx_bypass_capacity(const std::string &bytes);
   void transmit_gps(const std::string &bytes,
                     unsigned long baud = 9600,
                     SimTime start_delay = SimTime::zero());
@@ -252,6 +263,8 @@ public:
   std::size_t uart_unrouted_frames() const;
   std::size_t uart_framing_errors() const;
   std::size_t uart_contention_frames() const;
+  std::size_t serial1_rx_capacity() const;
+  std::size_t serial1_rx_overruns() const;
   const std::vector<I2cTransaction> &i2c_trace() const;
   std::uint8_t expander_direction(std::size_t port) const;
   std::uint64_t last_expander_inputs() const;

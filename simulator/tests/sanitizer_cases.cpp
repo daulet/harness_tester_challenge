@@ -38,7 +38,7 @@ host_sim::Runtime make_corrected_uart_runtime() {
 
 void run_nmea_overflow() {
   auto runtime = make_runtime();
-  runtime.inject_serial1_rx(std::string(65, 'x'));
+  runtime.inject_serial1_rx_bypass_capacity(std::string(65, 'x'));
   setup();
   loop();
 }
@@ -46,7 +46,7 @@ void run_nmea_overflow() {
 void run_narrow_shift() {
   auto runtime = make_runtime();
   runtime.set_button_pressed(false);
-  runtime.inject_serial1_rx(kValidGprmc);
+  runtime.inject_serial1_rx_bypass_capacity(kValidGprmc);
   setup();
   loop();
 }
@@ -63,6 +63,8 @@ void run_default_gps_overflow() {
   runtime.advance_by(std::chrono::milliseconds(1700));
   loop();
   loop();
+  loop();
+  runtime.advance_by(std::chrono::seconds(1));
   loop();
 }
 

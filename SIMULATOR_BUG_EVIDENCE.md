@@ -16,11 +16,12 @@ of the bug thesis.
 
 - 14 bugs passed dedicated simulator evidence tests.
 - 14/14 were accepted by fresh non-interactive Claude review.
-- With ngspice installed, the full simulator suite currently passes 53/53
+- With ngspice installed, the full simulator suite currently passes 55/55
   tests, including the separate second-pass scenario checks in
   `SIMULATOR_SCENARIO_REVIEW.md` and the electrical fixture matrix.
-- The `^bug_` filter contains 15 behavioral tests for these 14 bugs because A04
-  has independent status and checksum witnesses. This accepted ledger uses
+- The `^bug_` filter contains 16 behavioral tests for these 14 bugs because A03
+  has synthetic and physical-overrun boundary witnesses and A04 has independent
+  status and checksum witnesses. This accepted ledger uses
   source-backed A05 instead of A08; A03 and A05 additionally have
   expected-failure sanitizer witnesses.
 
@@ -28,7 +29,7 @@ of the bug thesis.
 | --- | --- | --- | --- |
 | A01 | `cy.begin()` is never called | `bug_a01_missing_begin` | ACCEPT: `setup()` never calls `cy.begin()`, so missing Wire2/expander setup follows from source. |
 | A02 | GPS SAFEBOOT and reset pins are written without output mode | `bug_a02_missing_output_modes` | ACCEPT: pins 3 and 4 are written without any preceding `pinMode(..., OUTPUT)`. |
-| A03 | NMEA staging writes past `nmea_buf` | `bug_a03_nmea_buffer_reaches_end_without_guard`, `sanitizer_a03_nmea_overflow`, `sanitizer_a03_default_gps_sentence_overflow` | ACCEPT: the boundary witness reaches index 64, while ASan reports the same global-buffer-overflow for both a synthetic boundary input and a generated source-shaped default GGA over timed UART. |
+| A03 | NMEA staging writes past `nmea_buf` | `bug_a03_nmea_buffer_reaches_end_without_guard`, `bug_a03_uart_overrun_path`, `sanitizer_a03_nmea_overflow`, `sanitizer_a03_default_gps_sentence_overflow` | ACCEPT: the direct boundary reaches index 64; the explicitly unmasked operational variant shows its intended timed harness pass overruns the 63-byte Teensy ring and leaves an unterminated fragment at index 63; ASan on unchanged firmware then reports the same global-buffer-overflow after later default GPS traffic. |
 | A04 | `$GPRMC` semantic validity is ignored | `bug_a04_invalid_status_accepted`, `bug_a04_checksum_ignored` | ACCEPT: `%*c` discards status and no checksum validation exists, so both status `V` and checksum-invalid GPS-only RMC input set `time_fixed`. |
 | A05 | Forty-pin masks use narrow signed shifts | `scenario_a05_narrow_masks`, `sanitizer_a05_narrow_shift` | ACCEPT: unchanged firmware reaches shift exponent 32 for a 32-bit `int`, which UBSan rejects. |
 | A06 | `set_output()` makes every expander pin an output | `bug_a06_all_outputs` | ACCEPT: the witness starts from the documented `0xFF` input reset state and observes `REG_PIN_DIRECTION = 0x00` written for all 8 ports. |
@@ -51,7 +52,10 @@ of the bug thesis.
 
 The same review accepted checksum-invalid RMC as part of A04's existing
 no-validation root cause. It narrowed CRLF's separate empty parser pass to a
-non-defect observation until finite RX capacity can demonstrate harmful loss.
+non-defect observation. Finite RX capacity now demonstrates harmful loss, but
+the resulting memory corruption remains evidence for A03 rather than a separate
+accepted defect; `firmware_uart_polling_control` proves frequent service avoids
+the overrun under the same default stream.
 
 The fresh review was run against the current corrected simulator and explicitly
 instructed Claude to reject any claim that depended only on simulator behavior
@@ -65,4 +69,4 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-Current result with ngspice installed: 53/53 tests passed.
+Current result with ngspice installed: 55/55 tests passed.

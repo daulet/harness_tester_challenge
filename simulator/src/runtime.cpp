@@ -41,6 +41,8 @@ constexpr std::uint8_t kOutputMode = 1;
 constexpr std::uint64_t kMicrosecondsPerSecond = 1000000;
 constexpr std::uint64_t kUartBitsPerFrame = 10;
 constexpr unsigned long kMaximumModeledBaud = 10000000;
+// PJRC's 64-entry Serial1 ring leaves one slot empty to distinguish full.
+constexpr std::size_t kTeensySerial1RxCapacity = 63;
 constexpr std::uint32_t kDefaultI2cClockHz = 100000;
 constexpr std::uint32_t kMaximumModeledI2cClockHz = 10000000;
 constexpr std::uint8_t kFileWriteMode = 0x01;
@@ -246,7 +248,7 @@ int PrintSink::printf(const char *format, ...) {
   return static_cast<int>(output.size());
 }
 
-HardwareSerial::HardwareSerial(Port port) : port_(port) {}
+HardwareSerial::HardwareSerial(Port port) : port_(port) { clear(); }
 
 void HardwareSerial::begin(unsigned long baud) { baud_ = baud; }
 
@@ -262,11 +264,32 @@ int HardwareSerial::read() {
 }
 
 void HardwareSerial::push_rx(const std::string &bytes) {
-  if (rx_offset_ == rx_.size()) {
-    rx_.clear();
-    rx_offset_ = 0;
-  }
+  compact_rx();
   rx_ += bytes;
+}
+
+void HardwareSerial::receive_rx(char value) {
+  if (rx_.size() - rx_offset_ >= rx_capacity_) {
+    ++rx_overruns_;
+    return;
+  }
+  compact_rx();
+  rx_.push_back(value);
+}
+
+void HardwareSerial::set_rx_capacity(std::size_t capacity) {
+  if (rx_offset_ != rx_.size()) {
+    throw std::logic_error("cannot resize a nonempty UART receive buffer");
+  }
+  rx_capacity_ = capacity;
+}
+
+void HardwareSerial::compact_rx() {
+  if (rx_offset_ == 0) {
+    return;
+  }
+  rx_.erase(0, rx_offset_);
+  rx_offset_ = 0;
 }
 
 void HardwareSerial::clear() {
@@ -274,6 +297,10 @@ void HardwareSerial::clear() {
   rx_.clear();
   tx_.clear();
   rx_offset_ = 0;
+  rx_capacity_ = port_ == Port::Uart1
+      ? kTeensySerial1RxCapacity
+      : std::numeric_limits<std::size_t>::max();
+  rx_overruns_ = 0;
 }
 
 const std::string &HardwareSerial::output() const { return tx_; }
@@ -281,6 +308,10 @@ const std::string &HardwareSerial::output() const { return tx_; }
 bool HardwareSerial::begun() const { return baud_ != 0; }
 
 unsigned long HardwareSerial::baud() const { return baud_; }
+
+std::size_t HardwareSerial::rx_capacity() const { return rx_capacity_; }
+
+std::size_t HardwareSerial::rx_overruns() const { return rx_overruns_; }
 
 std::size_t HardwareSerial::write_bytes(const std::string &bytes) {
   tx_ += bytes;
@@ -537,7 +568,11 @@ void Runtime::schedule_button_state(bool pressed, SimTime delay) {
   schedule_after(delay, [this, pressed] { button_pressed_ = pressed; });
 }
 
-void Runtime::inject_serial1_rx(const std::string &bytes) {
+void Runtime::configure_serial1_rx_capacity(std::size_t capacity) {
+  Serial1.set_rx_capacity(capacity);
+}
+
+void Runtime::inject_serial1_rx_bypass_capacity(const std::string &bytes) {
   Serial1.push_rx(bytes);
 }
 
@@ -749,7 +784,7 @@ void Runtime::finish_uart_frame(const std::shared_ptr<UartFrame> &frame) {
       ++uart_unrouted_frames_;
     } else if (!frame->collided && frame->receiver_ready && Serial1.begun() &&
                baud_compatible(frame->baud, Serial1.baud())) {
-      Serial1.push_rx(std::string(1, frame->value));
+      Serial1.receive_rx(frame->value);
     } else if (!frame->collided) {
       ++uart_framing_errors_;
     }
@@ -1011,6 +1046,14 @@ std::size_t Runtime::uart_framing_errors() const {
 
 std::size_t Runtime::uart_contention_frames() const {
   return uart_contention_frames_;
+}
+
+std::size_t Runtime::serial1_rx_capacity() const {
+  return Serial1.rx_capacity();
+}
+
+std::size_t Runtime::serial1_rx_overruns() const {
+  return Serial1.rx_overruns();
 }
 
 const std::vector<I2cTransaction> &Runtime::i2c_trace() const {

@@ -139,3 +139,15 @@
 - Permanent rule: storage witnesses must inspect operation results and the
   resulting artifact; successful initialization/open is not proof of a complete
   or durable record.
+
+## 2026-06-05 - Timed links also need finite consumers
+
+- Symptom: source-correct GPS cadence crossed the UART intact in simulation even
+  while firmware performed a long blocking harness test.
+- Root cause: frame delivery had timing and topology but appended to an unbounded
+  host string instead of the Teensy Serial1 software ring.
+- Source evidence: PJRC allocates 64 Serial1 receive entries and keeps one ring
+  slot empty; `bug_a03_uart_overrun_path` observes drop-new loss and a 63-byte
+  unterminated parser fragment, while `firmware_uart_polling_control` does not.
+- Permanent rule: every timed producer/consumer boundary needs capacity, loss
+  policy, and accounting before throughput conclusions are credible.
