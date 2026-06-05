@@ -10,7 +10,7 @@
 | SD | In-memory append-only strings | SD/FAT behavior | Weak |
 | Harness digital | Boolean graph for 40 pins | Physical harness connectivity | Topology-only |
 | Harness analog | One authored R/L/C channel | 40 physical channels | Representative only |
-| Board connectivity | Custom KiCad S-expression/geometry parser | KiCad connectivity/DRC | Useful, approximate |
+| Board connectivity and component metadata | Custom KiCad S-expression/geometry parser | KiCad connectivity/DRC | Scoped values/footprints are structural; geometry remains approximate |
 | Power/protection | Compact authored ngspice deck | Vendor curves and hardware | First-order only |
 | RF/EMI/mechanical | None | Physical boundary | Out of scope until explicitly added |
 

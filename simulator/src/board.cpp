@@ -259,6 +259,7 @@ struct ZoneRecord {
 
 struct PcbData {
   std::map<int, std::string> net_names;
+  std::map<std::string, BoardComponent> components;
   std::vector<PadRecord> pads;
   std::vector<SegmentRecord> segments;
   std::vector<ViaRecord> vias;
@@ -493,14 +494,25 @@ PcbData parse_pcb(const std::string& path) {
       continue;
     }
     if (child.atom == "footprint") {
+      BoardComponent component;
       std::string reference;
       Point footprint_point;
       int footprint_rotation = 0;
+      if (const auto footprint = atom_at(child, 0)) {
+        component.pcb_footprint = *footprint;
+      }
       for (const auto* property : children_named(child, "property")) {
         if (atom_at(*property, 0) && *atom_at(*property, 0) == "Reference" &&
             atom_at(*property, 1)) {
           reference = *atom_at(*property, 1);
+        } else if (atom_at(*property, 0) && *atom_at(*property, 0) == "Value" &&
+                   atom_at(*property, 1)) {
+          component.pcb_value = *atom_at(*property, 1);
         }
+      }
+      if (!reference.empty()) {
+        component.reference = reference;
+        pcb.components[reference] = component;
       }
       if (const auto* at = child_named(child, "at")) {
         footprint_point = parse_point(*at);
@@ -656,6 +668,7 @@ struct SymbolDefinition {
 
 struct SchematicData {
   std::map<std::string, SymbolDefinition> library;
+  std::map<std::string, BoardComponent> components;
   std::map<std::string, std::map<std::string, std::set<std::string>>> pin_nets;
   std::map<std::string, std::map<std::string, std::string>> pin_names;
 };
@@ -875,15 +888,25 @@ SchematicData parse_schematic(const std::string& path) {
       continue;
     }
     std::string reference;
+    BoardComponent component;
+    component.schematic_lib_id = *lib_id;
     for (const auto* property : children_named(child, "property")) {
       if (atom_at(*property, 0) && *atom_at(*property, 0) == "Reference" &&
           atom_at(*property, 1)) {
         reference = *atom_at(*property, 1);
+      } else if (atom_at(*property, 0) && *atom_at(*property, 0) == "Value" &&
+                 atom_at(*property, 1)) {
+        component.schematic_value = *atom_at(*property, 1);
+      } else if (atom_at(*property, 0) && *atom_at(*property, 0) == "Footprint" &&
+                 atom_at(*property, 1)) {
+        component.schematic_footprint = *atom_at(*property, 1);
       }
     }
     if (reference.empty()) {
       continue;
     }
+    component.reference = reference;
+    schematic.components[reference] = component;
     const auto library_iter = schematic.library.find(*lib_id);
     if (library_iter == schematic.library.end()) {
       continue;
@@ -1214,6 +1237,13 @@ BoardModel BoardModel::load(const std::string& pcb_path,
   const auto schematic = parse_schematic(schematic_path);
 
   BoardModel model;
+  model.components_ = schematic.components;
+  for (const auto& [reference, component] : pcb.components) {
+    auto& merged = model.components_[reference];
+    merged.reference = reference;
+    merged.pcb_value = component.pcb_value;
+    merged.pcb_footprint = component.pcb_footprint;
+  }
   model.physical_nets_ = pcb.physical_nets;
   model.physical_graph_ = std::make_shared<RuntimePhysicalGraph>(build_physical_graph(pcb));
   for (const auto& pad : pcb.pads) {
@@ -1443,6 +1473,14 @@ const BoardPad& BoardModel::pad(const std::string& reference, const std::string&
   const auto iter = pads_.find(std::make_pair(reference, pad));
   if (iter == pads_.end()) {
     throw std::out_of_range("board pad");
+  }
+  return iter->second;
+}
+
+const BoardComponent& BoardModel::component(const std::string& reference) const {
+  const auto iter = components_.find(reference);
+  if (iter == components_.end()) {
+    throw std::out_of_range("board component");
   }
   return iter->second;
 }

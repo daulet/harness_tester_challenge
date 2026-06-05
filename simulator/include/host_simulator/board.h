@@ -38,6 +38,15 @@ struct BoardPad {
   std::string pinfunction;
 };
 
+struct BoardComponent {
+  std::string reference;
+  std::string schematic_lib_id;
+  std::string schematic_value;
+  std::string schematic_footprint;
+  std::string pcb_value;
+  std::string pcb_footprint;
+};
+
 struct ExpanderPinDrive {
   bool is_input = true;
   bool output_value = false;
@@ -87,6 +96,7 @@ public:
 
   const HarnessChannel& channel(std::size_t harness_index) const;
   const BoardPad& pad(const std::string& reference, const std::string& pad) const;
+  const BoardComponent& component(const std::string& reference) const;
   std::size_t arduino_pin(const std::string& name) const;
   const std::map<std::string, std::size_t>& io_pins() const;
   const std::map<std::string, PhysicalNet>& physical_nets() const;
@@ -110,6 +120,7 @@ public:
 private:
   std::array<HarnessChannel, kHarnessPins> channels_{};
   std::map<std::pair<std::string, std::string>, BoardPad> pads_;
+  std::map<std::string, BoardComponent> components_;
   std::array<std::vector<std::size_t>, kHarnessPins> external_to_internal_{};
   std::map<std::string, std::size_t> io_pins_{};
   std::map<std::string, PhysicalNet> physical_nets_{};

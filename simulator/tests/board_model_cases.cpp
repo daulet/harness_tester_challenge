@@ -81,6 +81,15 @@ int main() {
   ok &= require(model.pcb_connected("CY_SCL", "U2", "16", "U4", "24") &&
                     model.pcb_connected("CY_SDA", "U2", "17", "U4", "28"),
                 "non-J3 I2C routes did not resolve through the PCB graph");
+  const auto& u4 = model.component("U4");
+  ok &= require(u4.schematic_lib_id == "CY8C9560A:CY8C9560A-24AXIT" &&
+                    u4.schematic_value == "CY8C9560A-24AXIT" &&
+                    u4.schematic_footprint ==
+                        "Package_QFP:TQFP-100_12x12mm_P0.4mm" &&
+                    u4.pcb_value == "CY8C9560A-24AXIT" &&
+                    u4.pcb_footprint ==
+                        "Package_QFP:TQFP-100_12x12mm_P0.4mm",
+                "U4 component metadata did not resolve structurally");
   ok &= require(model.connectivity_mismatches().empty(),
                 "source-matched digital connectivity unexpectedly reported mismatches");
 

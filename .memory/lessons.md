@@ -51,3 +51,14 @@
   A05 UBSan reports an invalid shift in `firmware.ino`.
 - Permanent rule: expected-failure wrappers require nonzero termination and
   diagnostic tokens that identify both the bug class and target behavior.
+
+## 2026-06-05 - Do not retain subobject references from temporary models
+
+- Symptom: structural A29 metadata appeared empty despite the parser parity test
+  passing.
+- Root cause: the scenario bound a reference returned by
+  `board_model().component("U4")`; the temporary `BoardModel` was destroyed at
+  the end of the statement.
+- Source evidence: targeted scenario failure and local lifetime inspection.
+- Permanent rule: keep source models alive for at least as long as references to
+  parsed pads, components, nets, or graph objects.

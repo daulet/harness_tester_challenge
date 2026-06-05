@@ -114,33 +114,28 @@ bool run_a25_reverse_polarity_path() {
   const auto model = board_model();
   const auto raw_input = model.pad("J1", "1").net;
   return require(raw_input == model.pad("D1", "1").net,
-                 "A25: D1 anode did not share the raw input net") &&
+                 "A25: D1 cathode did not share the raw input net") &&
       require(raw_input == model.pad("Q1", "5").net,
-                 "A25: Q1 drain did not share the raw input net") &&
+              "A25: Q1 drain did not share the raw input net") &&
       require(model.pad("D1", "2").net == "GND",
-                 "A25: D1 cathode did not land on GND") &&
+              "A25: D1 anode did not land on GND") &&
       require(model.pad("Q1", "1").net == "+12V",
-                 "A25: Q1 source did not land on the protected +12V rail");
+              "A25: Q1 source did not land on the protected +12V rail");
 }
 
 bool run_a29_u4_wrong_footprint() {
-  const auto schematic = read_file(data_path("kicad_files/hardware_challenge.kicad_sch"));
-  const auto pcb = read_file(data_path("kicad_files/hardware_challenge.kicad_pcb"));
-  const auto schematic_u4 = schematic.find("(property \"Reference\" \"U4\"");
-  const auto pcb_u4 = pcb.find("(property \"Reference\" \"U4\"");
-  const auto pcb_footprint = pcb_u4 == std::string::npos
-      ? std::string::npos
-      : pcb.rfind("(footprint \"", pcb_u4);
-  return require(schematic_u4 != std::string::npos,
-                 "A29: U4 was not present in the schematic") &&
-      require(schematic.find("CY8C9560A-24AXIT", schematic_u4) != std::string::npos,
-              "A29: selected CY8C9560A part was not present near U4") &&
-      require(pcb_footprint != std::string::npos &&
-                  pcb.compare(
-                      pcb_footprint,
-                      std::string("(footprint \"Package_QFP:TQFP-100_12x12mm_P0.4mm\"").size(),
-                      "(footprint \"Package_QFP:TQFP-100_12x12mm_P0.4mm\"") == 0,
-              "A29: U4 did not use the 12 mm TQFP footprint");
+  const auto model = board_model();
+  const auto& u4 = model.component("U4");
+  return require(u4.schematic_value == "CY8C9560A-24AXIT",
+                 "A29: schematic U4 did not select CY8C9560A-24AXIT") &&
+      require(u4.schematic_footprint ==
+                  "Package_QFP:TQFP-100_12x12mm_P0.4mm",
+              "A29: schematic U4 did not assign the 12 mm TQFP footprint") &&
+      require(u4.pcb_value == "CY8C9560A-24AXIT",
+              "A29: PCB U4 value did not match the selected part") &&
+      require(u4.pcb_footprint ==
+                  "Package_QFP:TQFP-100_12x12mm_P0.4mm",
+              "A29: PCB U4 did not use the 12 mm TQFP footprint");
 }
 
 bool run_case(const std::string& name) {

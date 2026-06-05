@@ -17,9 +17,9 @@
   dynamically expose the NMEA overflow and narrow-mask undefined behavior.
   - Prerequisite: none; implement in the same pass as the reset-model correction
     so runtime changes immediately receive sanitizer coverage.
-- [ ] **Next:** fix A25 terminal diagnostics and replace A29's unscoped source search with
+- [x] **Done:** fix A25 terminal diagnostics and replace A29's unscoped source search with
   structural schematic data exposed by `BoardModel`.
-- [ ] Add mutation-style negative controls for high-value witnesses so removal
+- [ ] **Next:** add mutation-style negative controls for high-value witnesses so removal
   of the target action makes the test fail.
 - [ ] Refresh `SIMULATOR_20_ISSUES.md` and `SIMULATOR_BUG_EVIDENCE.md` after Q1
   so A06 no longer appears withheld for a simulator defect that has been fixed.

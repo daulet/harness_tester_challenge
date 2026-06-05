@@ -20,8 +20,8 @@
 
 ## Public simulator APIs
 
-- `BoardModel`: KiCad loading, pad/net lookup, physical connectivity, harness
-  mapping, digital input resolution.
+- `BoardModel`: KiCad loading, scoped schematic/PCB component metadata, pad/net
+  lookup, physical connectivity, harness mapping, digital input resolution.
 - `Runtime`: GPIO, serial, SD, I2C/expander state, elapsed time, and analog
   stimulus export.
 - `NgSpiceSimulator`: strict fixture load, process execution, named measurement
