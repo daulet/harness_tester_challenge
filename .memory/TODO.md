@@ -41,9 +41,14 @@
 - [x] **Done:** replace atomic I2C success with line-aware transactions, NACK, stuck-low,
   clock stretching, and device reset/address timing.
   - Prerequisite: event queue and Q1 expander reset fidelity.
-- [ ] **Next:** add NEO-M8 startup/default sentence cadence/checksum behavior and SD/FAT
-  latency, capacity, removal, open modes, and partial-write failures.
+- [x] **Done:** add NEO-M8 startup/default sentence cadence/checksum behavior.
   - Prerequisite: event queue and timed UART.
+- [ ] **Next:** add SD/FAT latency, capacity, removal, open modes, and
+  partial-write failures.
+  - Prerequisite: event queue.
+- [ ] Model finite Teensy UART RX capacity, overrun accounting, and firmware
+  polling under continuous default GPS traffic.
+  - Prerequisite: timed UART and NEO-M8 sentence cadence.
   - Completion gate for Q2: deterministic tests prove byte availability,
     button/reset transitions, I2C failures, GPS startup/cadence, and SD latency
     at exact simulated timestamps; unchanged firmware runs without wall-clock

@@ -115,3 +115,15 @@
 - Permanent rule: end-to-end tests default to parsed physical topology; tests
   that intentionally isolate a downstream layer must opt into ideal mode and
   state that boundary explicitly.
+
+## 2026-06-05 - A reproduced mechanism is not automatically a product defect
+
+- Symptom: CR and LF each cause a parser break, producing one empty LF-only
+  firmware pass per NMEA sentence.
+- Root cause: the loop treats either terminator independently while real NMEA
+  output uses CRLF.
+- Source evidence: `firmware_nmea_crlf_empty_pass` proves the extra pass, but
+  the host RX queue is unbounded and shows no loss or misparse.
+- Permanent rule: retain discriminating behavior tests, but do not promote a
+  mechanism to a defect until its harmful consequence is source-backed and
+  observable at the modeled boundary.

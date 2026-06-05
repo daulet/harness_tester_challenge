@@ -6,6 +6,7 @@
 | CY8C9560 registers | Compact hand model with active-high XRES/POR state | Infineon 38-12036 Rev. M and driver behavior | POR defaults, held-reset high-Z, firmware reset timeline, address response, and register transactions are source-backed |
 | GPIO electrical state | Mode/value booleans plus scheduled button waveforms | Teensy reset/core semantics | Button timing is deterministic; no solved voltage feedback |
 | UART | KiCad-routed timed 8N1 frames plus explicit direct-injection path | Teensy UART + NEO-M8 serial behavior | Direction, baud availability, and digital contention modeled; analog levels remain compact |
+| NEO-M8 output | Standalone deterministic receiver over timed UART | NEO-M8 data sheet UBX-13003366 and protocol spec UBX-13003221 | Source-backed startup TXT, 1 Hz default NMEA set, GN/GSV talkers, fix status, and checksum behavior; no RF/acquisition physics, satellite state, or bounded MCU RX FIFO |
 | I2C | Timed controller transactions, parsed-board stuck-low state, NACKs, and clock stretching | NXP UM10204 and Arduino Wire status behavior | Strong for single-controller digital sequencing; no rise time, arbitration, bus clear, or solved-voltage feedback |
 | SD | In-memory append-only strings | SD/FAT behavior | Weak |
 | Harness digital | Boolean graph for 40 pins | Physical harness connectivity | Topology-only |

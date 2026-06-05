@@ -1,8 +1,11 @@
+#include <chrono>
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
 #include <string>
 
+#include "board_fixture.h"
+#include "host_simulator/gps.h"
 #include "host_simulator/runtime.h"
 
 extern void setup();
@@ -26,6 +29,13 @@ host_sim::Runtime make_runtime() {
       data_path("kicad_files/hardware_challenge.kicad_sch")));
 }
 
+host_sim::Runtime make_corrected_uart_runtime() {
+  const auto pcb = test_support::corrected_uart_pcb(
+      HOST_SIM_ROOT, "corrected_gps_sanitizer_hardware_challenge.kicad_pcb");
+  return host_sim::Runtime(host_sim::BoardModel::load(
+      pcb, data_path("kicad_files/hardware_challenge.kicad_sch")));
+}
+
 void run_nmea_overflow() {
   auto runtime = make_runtime();
   runtime.inject_serial1_rx(std::string(65, 'x'));
@@ -41,11 +51,27 @@ void run_narrow_shift() {
   loop();
 }
 
+void run_default_gps_overflow() {
+  auto runtime = make_corrected_uart_runtime();
+  runtime.set_button_pressed(true);
+  setup();
+
+  host_sim::GpsReceiver receiver(runtime);
+  host_sim::GpsReceiverConfig config;
+  config.acquisition_time = host_sim::SimTime::zero();
+  receiver.start(config);
+  runtime.advance_by(std::chrono::milliseconds(1700));
+  loop();
+  loop();
+  loop();
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
   if (argc != 2) {
-    std::cerr << "usage: sanitizer_cases <nmea-overflow|narrow-shift>\n";
+    std::cerr << "usage: sanitizer_cases "
+                 "<nmea-overflow|narrow-shift|default-gps-overflow>\n";
     return EXIT_FAILURE;
   }
 
@@ -54,6 +80,8 @@ int main(int argc, char **argv) {
     run_nmea_overflow();
   } else if (name == "narrow-shift") {
     run_narrow_shift();
+  } else if (name == "default-gps-overflow") {
+    run_default_gps_overflow();
   } else {
     throw std::runtime_error("unknown sanitizer case: " + name);
   }

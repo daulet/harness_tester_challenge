@@ -68,6 +68,14 @@ contention checks. `inject_serial1_rx()` remains an explicit topology-bypassing
 helper for isolated parser and sanitizer witnesses; end-to-end scenarios use
 `transmit_gps()` instead.
 
+`GpsReceiver` layers a deterministic NEO-M8 source profile over that UART
+transport: startup TXT, one-second navigation epochs, the factory-enabled NMEA
+sentence set, concurrent-mode `GN` navigation talkers with GNSS-specific GSV talkers,
+pre-fix/post-fix status, and generated or intentionally corrupted checksums.
+The default cold-acquisition interval is 26 seconds. This models documented
+receiver output behavior, not RF acquisition, satellite dynamics, ephemeris,
+leap seconds, or a finite MCU receive FIFO.
+
 Button input changes can be scheduled as exact press/bounce/release waveforms.
 The CY8C9560 model follows the selected silicon rather than the misleading
 `CY_RST_N` net name: XRES is active high, POR powers up deasserted with factory

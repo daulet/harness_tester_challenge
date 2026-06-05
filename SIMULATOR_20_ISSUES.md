@@ -50,6 +50,8 @@ optical brightness, manufacturing yield, or production readiness.
 - **Proof:** `bug_a03_nmea_buffer_reaches_end_without_guard` establishes the
   boundary state, and `sanitizer_a03_nmea_overflow` executes the unchanged
   firmware path under ASan and reports a global-buffer-overflow at `nmea_buf`.
+  `sanitizer_a03_default_gps_sentence_overflow` independently reaches the same
+  fault with a generated default GGA delivered over corrected timed UART.
 - **Claude critique:** ACCEPT with narrowed wording.
 - **Boundary:** the host sanitizer proves the C++ memory violation. Exact target
   corruption remains architecture- and layout-dependent.
@@ -58,7 +60,9 @@ optical brightness, manufacturing yield, or production readiness.
 
 - **Proof:** the `%*c` conversion discards the RMC A/V status. An injected
   `$GPRMC` sentence with status `V` sets `time_fixed` in
-  `bug_a04_invalid_status_accepted`.
+  `bug_a04_invalid_status_accepted`. The same parser performs no NMEA checksum
+  validation; `bug_a04_checksum_ignored` accepts an intentionally invalid
+  checksum as a complementary witness for the same validation root cause.
 - **Claude critique:** ACCEPT; the same behavior reproduces on the original and
   isolated firmware builds.
 
@@ -159,6 +163,8 @@ optical brightness, manufacturing yield, or production readiness.
 
 - **Proof:** parsing is hard-coded to literal `$GPRMC`; `bug_a19_gnrmc_ignored`
   injects `$GNRMC` and observes no time fix.
+  `gps_startup_cadence_and_checksum` independently generates the NEO-M8
+  concurrent-mode `GN` main talker at its source-backed one-second cadence.
 - **Claude critique:** ACCEPT.
 - **Boundary:** the system-level impact depends on NEO-M8 configuration; factory
   multi-GNSS configuration triggers the issue, while GPS-only configuration can
@@ -230,7 +236,7 @@ executes `set_output()`, and observes all eight registers transition to `0x00`.
 
 ```text
 ctest --test-dir build -R '^(bug_|scenario_)' --output-on-failure
-21/21 candidate witnesses passed
+22/22 candidate witnesses passed
 
-Full suite verified: 46/46 passed
+Full suite verified: 50/50 passed
 ```

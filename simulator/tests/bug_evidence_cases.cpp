@@ -25,6 +25,11 @@ constexpr const char* kInvalidGprmc =
     "$GPRMC,123519,V,0,N,0,E,0,0,230394\r\n";
 constexpr const char* kValidGnrmc =
     "$GNRMC,123519,A,0,N,0,E,0,0,230394\r\n";
+constexpr const char* kBadChecksumGprmc =
+    "$GPRMC,123519,A,0,N,0,E,0,0,230394*00\r\n";
+constexpr const char* kTxtThenGprmc =
+    "$GPTXT,01,01,02,u-blox ag - www.u-blox.com*50\r\n"
+    "$GPRMC,123519,A,0,N,0,E,0,0,230394\r\n";
 
 std::string data_path(const std::string& relative) {
   return std::string(HOST_SIM_ROOT) + "/" + relative;
@@ -138,6 +143,33 @@ bool run_a04_invalid_status_accepted() {
                  "A04: invalid-status GPRMC did not set time_fixed") &&
       require(contains(runtime->serial_output(), "Time received."),
               "A04: invalid-status GPRMC did not produce a time-lock message");
+}
+
+bool run_a04_checksum_ignored() {
+  auto runtime = make_runtime(expected_harness());
+  prepare_for_test(*runtime, kBadChecksumGprmc, true);
+  return require(time_fixed,
+                 "bad-checksum GPRMC did not set time_fixed") &&
+      require(contains(runtime->serial_output(), "Time received."),
+              "bad-checksum GPRMC did not produce a time-lock message");
+}
+
+bool run_nmea_crlf_empty_pass() {
+  auto runtime = make_runtime(expected_harness());
+  runtime->set_button_pressed(true);
+  runtime->inject_serial1_rx(kTxtThenGprmc);
+  setup();
+
+  loop();
+  const auto after_txt = host_sim::Serial1.available();
+  loop();
+  const auto after_lf = host_sim::Serial1.available();
+  const bool delayed = !time_fixed && after_lf == after_txt - 1;
+  loop();
+  return require(delayed,
+                 "CRLF separator did not consume an otherwise empty loop") &&
+      require(time_fixed,
+              "GPRMC did not parse after the extra LF-only loop");
 }
 
 bool run_a06_all_outputs() {
@@ -260,6 +292,10 @@ bool run_case(const std::string& name) {
     return run_a03_nmea_buffer_reaches_end_without_guard();
   }
   if (name == "a04_invalid_status_accepted") return run_a04_invalid_status_accepted();
+  if (name == "a04_checksum_ignored") return run_a04_checksum_ignored();
+  if (name == "nmea_crlf_empty_pass") {
+    return run_nmea_crlf_empty_pass();
+  }
   if (name == "a06_all_outputs") return run_a06_all_outputs();
   if (name == "a07_selected_output_undone") return run_a07_selected_output_undone();
   if (name == "a08_one_matching_row_passes") return run_a08_one_matching_row_passes();

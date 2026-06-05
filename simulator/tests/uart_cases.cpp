@@ -1,12 +1,10 @@
 #include <chrono>
 #include <cstdlib>
-#include <fstream>
 #include <iostream>
-#include <sstream>
-#include <stdexcept>
 #include <string>
 
 #include "host_simulator/runtime.h"
+#include "board_fixture.h"
 
 namespace {
 
@@ -18,56 +16,9 @@ std::string data_path(const std::string &relative) {
   return std::string(HOST_SIM_ROOT) + "/" + relative;
 }
 
-std::string read_file(const std::string &path) {
-  std::ifstream file(path);
-  if (!file) {
-    throw std::runtime_error("failed to open source file: " + path);
-  }
-  std::ostringstream content;
-  content << file.rdbuf();
-  return content.str();
-}
-
-void write_file(const std::string &path, const std::string &content) {
-  std::ofstream file(path);
-  if (!file) {
-    throw std::runtime_error("failed to write source file: " + path);
-  }
-  file << content;
-}
-
-void replace_after(std::string &source, std::size_t offset,
-                   const std::string &from, const std::string &to) {
-  const auto marker = source.find(from, offset);
-  if (marker == std::string::npos) {
-    throw std::runtime_error("UART mutation marker not found: " + from);
-  }
-  source.replace(marker, from.size(), to);
-}
-
 host_sim::BoardModel board_model(const std::string &pcb_path) {
   return host_sim::BoardModel::load(
       pcb_path, data_path("kicad_files/hardware_challenge.kicad_sch"));
-}
-
-std::string corrected_uart_pcb() {
-  auto source =
-      read_file(data_path("kicad_files/hardware_challenge.kicad_pcb"));
-  const auto u2 = source.find("(property \"Reference\" \"U2\"");
-  if (u2 == std::string::npos) {
-    throw std::runtime_error("UART mutation did not find U2");
-  }
-  const auto rx_pad = source.find("(pad \"2\"", u2);
-  const auto tx_pad = source.find("(pad \"3\"", rx_pad);
-  if (rx_pad == std::string::npos || tx_pad == std::string::npos) {
-    throw std::runtime_error("UART mutation did not find U2 serial pads");
-  }
-  replace_after(source, rx_pad, "(net 64 \"UBX-RXD\")", "(net 74 \"UBX-TXD\")");
-  replace_after(source, tx_pad, "(net 74 \"UBX-TXD\")", "(net 64 \"UBX-RXD\")");
-  const auto path =
-      data_path("build/corrected_uart_hardware_challenge.kicad_pcb");
-  write_file(path, source);
-  return path;
 }
 
 bool require(bool condition, const std::string &message) {
@@ -84,7 +35,8 @@ int main() {
 
   const auto original_pcb =
       data_path("kicad_files/hardware_challenge.kicad_pcb");
-  const auto corrected_pcb = corrected_uart_pcb();
+  const auto corrected_pcb = test_support::corrected_uart_pcb(
+      HOST_SIM_ROOT, "corrected_uart_hardware_challenge.kicad_pcb");
   bool ok = true;
 
   {

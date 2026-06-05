@@ -11,6 +11,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_library(host_simulator
   simulator/src/analog.cpp
   simulator/src/board.cpp
+  simulator/src/gps.cpp
   simulator/src/runtime.cpp
 )
 
@@ -199,6 +200,19 @@ target_compile_options(i2c_cases PRIVATE
   -Wpedantic
 )
 
+add_executable(gps_cases
+  simulator/tests/gps_cases.cpp
+)
+target_link_libraries(gps_cases PRIVATE host_simulator)
+target_compile_definitions(gps_cases PRIVATE
+  HOST_SIM_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
+)
+target_compile_options(gps_cases PRIVATE
+  -Wall
+  -Wextra
+  -Wpedantic
+)
+
 add_executable(scenario_cases
   simulator/tests/scenario_cases.cpp
 )
@@ -235,6 +249,7 @@ add_test(NAME runtime_defaults COMMAND runtime_cases)
 add_test(NAME uart_timing_and_topology COMMAND uart_cases)
 add_test(NAME button_and_reset_timing COMMAND timing_cases)
 add_test(NAME i2c_timing_and_faults COMMAND i2c_cases)
+add_test(NAME gps_startup_cadence_and_checksum COMMAND gps_cases)
 add_test(NAME scenario_a05_narrow_masks COMMAND scenario_cases a05_narrow_masks)
 add_test(NAME scenario_a10_uart_same_direction COMMAND scenario_cases a10_uart_same_direction)
 add_test(NAME scenario_a11_sda_pull_down COMMAND scenario_cases a11_sda_pull_down)
@@ -272,6 +287,10 @@ add_test(NAME bug_a02_missing_output_modes COMMAND firmware_original_bug_cases a
 add_test(NAME bug_a03_nmea_buffer_reaches_end_without_guard
   COMMAND firmware_original_bug_cases a03_nmea_buffer_reaches_end_without_guard)
 add_test(NAME bug_a04_invalid_status_accepted COMMAND firmware_unmasked_bug_cases a04_invalid_status_accepted)
+add_test(NAME bug_a04_checksum_ignored
+  COMMAND firmware_unmasked_bug_cases a04_checksum_ignored)
+add_test(NAME firmware_nmea_crlf_empty_pass
+  COMMAND firmware_unmasked_bug_cases nmea_crlf_empty_pass)
 add_test(NAME bug_a06_all_outputs COMMAND firmware_original_bug_cases a06_all_outputs)
 add_test(NAME bug_a07_selected_output_undone COMMAND firmware_original_bug_cases a07_selected_output_undone)
 add_test(NAME bug_a08_one_matching_row_passes
@@ -287,6 +306,14 @@ if(HOST_SIM_HAS_ASAN)
     COMMAND ${CMAKE_COMMAND}
       -DPROGRAM=$<TARGET_FILE:firmware_asan_cases>
       -DCASE=nmea-overflow
+      -DSANITIZER_ENV=ASAN_OPTIONS=halt_on_error=1:abort_on_error=1:detect_leaks=0
+      -DEXPECTED_1=global-buffer-overflow
+      -DEXPECTED_2=nmea_buf
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/simulator/tests/expect_sanitizer_failure.cmake)
+  add_test(NAME sanitizer_a03_default_gps_sentence_overflow
+    COMMAND ${CMAKE_COMMAND}
+      -DPROGRAM=$<TARGET_FILE:firmware_asan_cases>
+      -DCASE=default-gps-overflow
       -DSANITIZER_ENV=ASAN_OPTIONS=halt_on_error=1:abort_on_error=1:detect_leaks=0
       -DEXPECTED_1=global-buffer-overflow
       -DEXPECTED_2=nmea_buf
