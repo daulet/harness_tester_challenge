@@ -73,3 +73,12 @@
   `firmware.ino:152` with `shift exponent 32 is too large for 32-bit type int`.
 - Permanent rule: when reviewer reasoning conflicts with a reproducible claim,
   run the smallest deciding witness and preserve the exact diagnostic.
+
+## 2026-06-05 - Time advancement must not be reentrant
+
+- Symptom: a callback that recursively advances time can move the inner clock
+  past the outer target, after which the outer call writes an earlier time.
+- Root cause: event callbacks execute inside the scheduler's advancement loop.
+- Source evidence: Q2 event-queue design self-review.
+- Permanent rule: callbacks may enqueue same-time or future work, but advancing
+  or clearing the runtime from inside a callback is rejected.

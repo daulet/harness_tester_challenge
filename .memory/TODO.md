@@ -30,10 +30,10 @@
 
 ## Q2 - Event-driven runtime and peripheral fidelity
 
-- [ ] **Next:** add a deterministic event queue and advance it through `delay()` and
+- [x] **Done:** add a deterministic event queue and advance it through `delay()` and
   explicit time stepping.
   - Prerequisite: Q1 complete.
-- [ ] Deliver UART bytes according to configured baud and model TX/RX direction,
+- [ ] **Next:** deliver UART bytes according to configured baud and model TX/RX direction,
   framing, contention, and receive availability over time.
   - Prerequisite: event queue.
 - [ ] Model button bounce/press duration and reset/power-on timing.

@@ -1,6 +1,9 @@
+#include <chrono>
 #include <cstdlib>
 #include <iostream>
+#include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "host_simulator/runtime.h"
 
@@ -24,6 +27,8 @@ bool require(bool condition, const std::string& message) {
 }  // namespace
 
 int main() {
+  using namespace std::chrono_literals;
+
   host_sim::Runtime runtime(host_sim::BoardModel::load(
       data_path("kicad_files/hardware_challenge.kicad_pcb"),
       data_path("kicad_files/hardware_challenge.kicad_sch")));
@@ -60,6 +65,70 @@ int main() {
   const auto direction = runtime.i2c_read(0x20, 1);
   ok &= require(direction.size() == 1 && direction[0] == 0xFF,
                 "expander direction reset default did not match");
+
+  std::vector<int> order;
+  std::vector<host_sim::SimTime> timestamps;
+  runtime.schedule_at(500us, [&] {
+    order.push_back(1);
+    timestamps.push_back(runtime.now());
+    runtime.schedule_at(runtime.now(), [&] {
+      order.push_back(3);
+      timestamps.push_back(runtime.now());
+    });
+  });
+  runtime.schedule_at(500us, [&] {
+    order.push_back(2);
+    timestamps.push_back(runtime.now());
+  });
+  runtime.schedule_after(2ms, [&] {
+    order.push_back(4);
+    timestamps.push_back(runtime.now());
+  });
+
+  runtime.advance_to(499us);
+  ok &= require(order.empty(), "event queue delivered an event before its due time");
+  runtime.advance_by(1us);
+  ok &= require(order == std::vector<int>({1, 2, 3}),
+                "same-time events did not preserve stable scheduling order");
+  ok &= require(timestamps.size() == 3 && timestamps[0] == 500us &&
+                    timestamps[1] == 500us && timestamps[2] == 500us,
+                "same-time callbacks did not observe their exact due time");
+
+  runtime.delay(1);
+  ok &= require(order.size() == 3 && runtime.now() == 1500us,
+                "Arduino delay did not advance deterministic simulation time");
+  runtime.delay(1);
+  ok &= require(order == std::vector<int>({1, 2, 3, 4}) &&
+                    timestamps.back() == 2000us && runtime.elapsed_ms() == 2,
+                "Arduino delay did not deliver the due event at its exact timestamp");
+
+  bool rejected_backwards = false;
+  try {
+    runtime.advance_to(1999us);
+  } catch (const std::invalid_argument&) {
+    rejected_backwards = true;
+  }
+  ok &= require(rejected_backwards,
+                "event queue allowed simulation time to move backwards");
+
+  bool rejected_reentrant_advance = false;
+  runtime.schedule_at(runtime.now(), [&] {
+    try {
+      runtime.advance_by(1us);
+    } catch (const std::logic_error&) {
+      rejected_reentrant_advance = true;
+    }
+  });
+  runtime.advance_by(0us);
+  ok &= require(rejected_reentrant_advance,
+                "event callback recursively advanced simulation time");
+
+  bool stale_event_ran = false;
+  runtime.schedule_after(1ms, [&] { stale_event_ran = true; });
+  runtime.clear_peripherals();
+  runtime.advance_by(2ms);
+  ok &= require(!stale_event_ran && runtime.now() == 2ms,
+                "runtime reset retained a stale scheduled event");
 
   return ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }

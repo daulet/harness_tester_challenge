@@ -1,8 +1,11 @@
 #pragma once
 
+#include <chrono>
 #include <cstdarg>
 #include <cstdint>
+#include <functional>
 #include <memory>
+#include <queue>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -11,6 +14,9 @@
 #include "host_simulator/board.h"
 
 namespace host_sim {
+
+using SimTime = std::chrono::microseconds;
+using EventAction = std::function<void()>;
 
 class Runtime;
 
@@ -135,6 +141,12 @@ public:
   void set_sd_available(bool available);
   void clear_peripherals();
 
+  void schedule_at(SimTime due, EventAction action);
+  void schedule_after(SimTime delay, EventAction action);
+  void advance_to(SimTime target);
+  void advance_by(SimTime duration);
+  SimTime now() const;
+
   void pin_mode(std::uint8_t pin, std::uint8_t mode);
   void digital_write(std::uint8_t pin, std::uint8_t value);
   int digital_read(std::uint8_t pin) const;
@@ -157,7 +169,7 @@ public:
   bool expander_accessed() const;
   std::uint8_t expander_direction(std::size_t port) const;
   std::uint64_t last_expander_inputs() const;
-  std::uint32_t elapsed_ms() const;
+  std::uint64_t elapsed_ms() const;
   AnalogStimulus analog_stimulus() const;
   AnalogObservation simulate_analog(const NgSpiceSimulator &simulator,
                                     const AnalogFixture &fixture) const;
@@ -179,6 +191,16 @@ private:
     std::uint64_t last_inputs = 0;
   };
 
+  struct Event {
+    SimTime due{};
+    std::uint64_t sequence = 0;
+    EventAction action;
+  };
+
+  struct EventLater {
+    bool operator()(const Event &left, const Event &right) const;
+  };
+
   bool expander_available() const;
   void reset_expander_state();
   std::uint8_t read_expander_register(std::uint8_t reg);
@@ -189,7 +211,10 @@ private:
   Harness harness_;
   std::unordered_map<std::uint8_t, PinState> pins_;
   bool button_pressed_ = false;
-  std::uint32_t elapsed_ms_ = 0;
+  SimTime now_{};
+  std::uint64_t next_event_sequence_ = 0;
+  std::priority_queue<Event, std::vector<Event>, EventLater> events_;
+  bool advancing_ = false;
   ExpanderState expander_;
 };
 

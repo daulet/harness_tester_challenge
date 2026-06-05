@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstdarg>
 #include <cstdio>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
 
@@ -255,6 +256,14 @@ Runtime::~Runtime() {
   }
 }
 
+bool Runtime::EventLater::operator()(const Event &left,
+                                     const Event &right) const {
+  if (left.due != right.due) {
+    return left.due > right.due;
+  }
+  return left.sequence > right.sequence;
+}
+
 void Runtime::set_harness(Harness harness) { harness_ = std::move(harness); }
 
 void Runtime::set_button_pressed(bool pressed) { button_pressed_ = pressed; }
@@ -264,15 +273,79 @@ void Runtime::inject_gps(const std::string &nmea) { Serial1.push_rx(nmea); }
 void Runtime::set_sd_available(bool available) { SD.set_available(available); }
 
 void Runtime::clear_peripherals() {
+  if (advancing_) {
+    throw std::logic_error("cannot clear runtime while advancing time");
+  }
   pins_.clear();
   button_pressed_ = false;
-  elapsed_ms_ = 0;
+  now_ = SimTime::zero();
+  next_event_sequence_ = 0;
+  events_ = {};
   Serial.clear();
   Serial1.clear();
   Wire2.clear();
   SD.clear();
   reset_expander_state();
 }
+
+void Runtime::schedule_at(SimTime due, EventAction action) {
+  if (!action) {
+    throw std::invalid_argument("event action must not be empty");
+  }
+  if (due < now_) {
+    throw std::invalid_argument("cannot schedule an event in the past");
+  }
+  if (next_event_sequence_ == std::numeric_limits<std::uint64_t>::max()) {
+    throw std::overflow_error("event sequence exhausted");
+  }
+  events_.push(Event{due, next_event_sequence_++, std::move(action)});
+}
+
+void Runtime::schedule_after(SimTime delay, EventAction action) {
+  if (delay < SimTime::zero()) {
+    throw std::invalid_argument("event delay must not be negative");
+  }
+  if (delay > SimTime::max() - now_) {
+    throw std::overflow_error("event time overflow");
+  }
+  schedule_at(now_ + delay, std::move(action));
+}
+
+void Runtime::advance_to(SimTime target) {
+  if (advancing_) {
+    throw std::logic_error("simulation time advancement is not reentrant");
+  }
+  if (target < now_) {
+    throw std::invalid_argument("cannot move simulation time backwards");
+  }
+
+  advancing_ = true;
+  try {
+    while (!events_.empty() && events_.top().due <= target) {
+      auto event = events_.top();
+      events_.pop();
+      now_ = event.due;
+      event.action();
+    }
+    now_ = target;
+    advancing_ = false;
+  } catch (...) {
+    advancing_ = false;
+    throw;
+  }
+}
+
+void Runtime::advance_by(SimTime duration) {
+  if (duration < SimTime::zero()) {
+    throw std::invalid_argument("simulation duration must not be negative");
+  }
+  if (duration > SimTime::max() - now_) {
+    throw std::overflow_error("simulation time overflow");
+  }
+  advance_to(now_ + duration);
+}
+
+SimTime Runtime::now() const { return now_; }
 
 void Runtime::pin_mode(std::uint8_t pin, std::uint8_t mode) {
   pins_[pin].mode = mode;
@@ -309,7 +382,10 @@ std::uint8_t Runtime::pin_value(std::uint8_t pin) const {
   return iter == pins_.end() ? 0 : iter->second.value;
 }
 
-void Runtime::delay(std::uint32_t milliseconds) { elapsed_ms_ += milliseconds; }
+void Runtime::delay(std::uint32_t milliseconds) {
+  advance_by(std::chrono::duration_cast<SimTime>(
+      std::chrono::milliseconds(milliseconds)));
+}
 
 bool Runtime::i2c_write(std::uint8_t address,
                         const std::vector<std::uint8_t> &bytes) {
@@ -377,7 +453,10 @@ std::uint64_t Runtime::last_expander_inputs() const {
   return expander_.last_inputs;
 }
 
-std::uint32_t Runtime::elapsed_ms() const { return elapsed_ms_; }
+std::uint64_t Runtime::elapsed_ms() const {
+  return static_cast<std::uint64_t>(
+      std::chrono::duration_cast<std::chrono::milliseconds>(now_).count());
+}
 
 AnalogStimulus Runtime::analog_stimulus() const {
   const auto leds = led_state();
