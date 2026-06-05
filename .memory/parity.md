@@ -3,7 +3,7 @@
 | Boundary | Current model | Reference | Status |
 | --- | --- | --- | --- |
 | Firmware control flow | Host-compiled unchanged `.ino` | Source | Strong for defined C++ behavior |
-| CY8C9560 registers | Compact hand model | Driver usage and selected datasheet facts | Known wrong direction POR |
+| CY8C9560 registers | Compact hand model | Driver usage and selected datasheet facts | Direction POR corrected to input; broader timing pending |
 | GPIO electrical state | Mode/value booleans | Teensy reset/core semantics | Partial; no solved voltage feedback |
 | UART | Immediate RX byte queue, nominal TX voltage | Teensy UART + NEO-M8 serial behavior | Weak |
 | I2C | Atomic API transaction | Open-drain timed bus | Weak |

@@ -43,7 +43,9 @@ variants may isolate downstream behavior but may not silently become the oracle.
 
 ## Validation ladder
 
-1. `clang-format --dry-run --Werror` on changed C/C++ files.
+1. Preserve surrounding style in existing C/C++ files. Run `clang-format` on
+   new files; add whole-file enforcement only after a reviewed `.clang-format`
+   exists.
 2. Targeted CMake build and named CTest cases.
 3. Sanitizer build/tests for firmware and runtime changes once the Q1 sanitizer
    targets exist; creating those targets is part of Q1.

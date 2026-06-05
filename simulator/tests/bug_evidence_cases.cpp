@@ -143,8 +143,12 @@ bool run_a06_all_outputs() {
   auto runtime = make_runtime();
   CY8C9560 driver;
   driver.begin();
-  driver.set_output(1ULL << 3, 1ULL << 3);
   bool ok = true;
+  for (std::size_t port = 0; port < 8; ++port) {
+    ok &= require(runtime->expander_direction(port) == 0xFF,
+                  "A06: expander did not begin with every port as input");
+  }
+  driver.set_output(1ULL << 3, 1ULL << 3);
   for (std::size_t port = 0; port < 8; ++port) {
     ok &= require(runtime->expander_direction(port) == 0x00,
                   "A06: set_output did not make every port an output");

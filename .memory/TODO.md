@@ -8,12 +8,12 @@
 
 ## Q1 - Correctness and witness credibility
 
-- [ ] **Next:** repair the CY8C9560 power-on/reset model and make A06 a
+- [x] **Done:** repair the CY8C9560 power-on/reset model and make A06 a
   causal witness.
   - End-state: direction defaults match source documentation; test proves
     pre-state and `set_output()` transition.
   - Owner: `runtime.cpp`, runtime/bug tests.
-- [ ] Add ASan/UBSan build targets that execute the unchanged firmware path and
+- [ ] **Next:** add ASan/UBSan build targets that execute the unchanged firmware path and
   dynamically expose the NMEA overflow and narrow-mask undefined behavior.
   - Prerequisite: none; implement in the same pass as the reset-model correction
     so runtime changes immediately receive sanitizer coverage.
@@ -21,6 +21,8 @@
   structural schematic data exposed by `BoardModel`.
 - [ ] Add mutation-style negative controls for high-value witnesses so removal
   of the target action makes the test fail.
+- [ ] Refresh `SIMULATOR_20_ISSUES.md` and `SIMULATOR_BUG_EVIDENCE.md` after Q1
+  so A06 no longer appears withheld for a simulator defect that has been fixed.
   - Completion gate for Q1: A06 has a causal transition witness, sanitizer cases
     fail on the known original-firmware UB and pass on bounded controls, all
     source-scenario diagnostics are structurally scoped, and the normal 41-test

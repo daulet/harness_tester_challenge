@@ -58,7 +58,7 @@ int main() {
   ok &= require(runtime.i2c_write(0x20, {0x1C}),
                 "expander did not accept direction register select after reset");
   const auto direction = runtime.i2c_read(0x20, 1);
-  ok &= require(direction.size() == 1 && direction[0] == 0x00,
+  ok &= require(direction.size() == 1 && direction[0] == 0xFF,
                 "expander direction reset default did not match");
 
   return ok ? EXIT_SUCCESS : EXIT_FAILURE;

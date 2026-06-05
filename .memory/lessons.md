@@ -31,3 +31,13 @@
 - Source evidence: A05 and the host-only CMake targets.
 - Permanent rule: use sanitizers for language UB and a Teensy-target compile or
   trace for target-specific claims.
+
+## 2026-06-05 - A formatter without repo policy creates unrelated churn
+
+- Symptom: running default `clang-format -i` rewrote entire existing test files
+  for a three-line change.
+- Root cause: the repository has no `.clang-format`, so tool defaults do not
+  represent an established local style.
+- Source evidence: staged diff audit during Q1.
+- Permanent rule: do not bulk-format existing files until a reviewed repository
+  style exists; preserve surrounding style and format new files consistently.

@@ -405,7 +405,7 @@ bool Runtime::expander_available() const {
 void Runtime::reset_expander_state() {
   expander_ = {};
   expander_.reset_asserted = true;
-  expander_.directions.fill(0x00);
+  expander_.directions.fill(0xFF);
   for (auto &bank : expander_.drive_modes) {
     bank.fill(0x00);
   }
