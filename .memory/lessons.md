@@ -41,3 +41,13 @@
 - Source evidence: staged diff audit during Q1.
 - Permanent rule: do not bulk-format existing files until a reviewed repository
   style exists; preserve surrounding style and format new files consistently.
+
+## 2026-06-05 - Expected-failure tests must identify the failure
+
+- Symptom: a nonzero-exit test could pass for an unrelated crash, while UBSan
+  may recover and exit zero by default.
+- Root cause: exit status alone is not evidence of a specific defect.
+- Source evidence: A03 ASan reports `global-buffer-overflow` after `nmea_buf`;
+  A05 UBSan reports an invalid shift in `firmware.ino`.
+- Permanent rule: expected-failure wrappers require nonzero termination and
+  diagnostic tokens that identify both the bug class and target behavior.

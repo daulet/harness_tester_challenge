@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.16)
 
 project(harness_tester_simulator LANGUAGES CXX)
 
+include(CheckCXXSourceCompiles)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -69,6 +71,63 @@ add_firmware_case(firmware_original_cases firmware/firmware.ino)
 add_firmware_case(firmware_unmasked_cases simulator/variants/firmware_unmasked.ino)
 add_bug_evidence_case(firmware_original_bug_cases firmware/firmware.ino)
 add_bug_evidence_case(firmware_unmasked_bug_cases simulator/variants/firmware_unmasked.ino)
+
+function(check_sanitizer_available sanitizer result)
+  set(saved_required_flags "${CMAKE_REQUIRED_FLAGS}")
+  set(saved_required_link_options "${CMAKE_REQUIRED_LINK_OPTIONS}")
+  set(CMAKE_REQUIRED_FLAGS "-fsanitize=${sanitizer}")
+  set(CMAKE_REQUIRED_LINK_OPTIONS "-fsanitize=${sanitizer}")
+  check_cxx_source_compiles("int main() { return 0; }" ${result})
+  set(CMAKE_REQUIRED_FLAGS "${saved_required_flags}")
+  set(CMAKE_REQUIRED_LINK_OPTIONS "${saved_required_link_options}")
+  set(${result} "${${result}}" PARENT_SCOPE)
+endfunction()
+
+function(add_firmware_sanitizer_case target sanitizer)
+  set_source_files_properties(firmware/firmware.ino PROPERTIES
+    LANGUAGE CXX
+    COMPILE_OPTIONS "-x;c++"
+  )
+  add_executable(${target}
+    simulator/tests/sanitizer_cases.cpp
+    firmware/firmware.ino
+    firmware/CY8C9560.cpp
+  )
+  target_link_libraries(${target} PRIVATE host_simulator)
+  target_compile_definitions(${target} PRIVATE
+    HOST_SIM_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
+  )
+  target_compile_options(${target} PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+    -fno-omit-frame-pointer
+    -fsanitize=${sanitizer}
+  )
+  target_link_options(${target} PRIVATE
+    -fno-omit-frame-pointer
+    -fsanitize=${sanitizer}
+  )
+  if(sanitizer STREQUAL "undefined")
+    target_compile_options(${target} PRIVATE -fno-sanitize-recover=undefined)
+    target_link_options(${target} PRIVATE -fno-sanitize-recover=undefined)
+  endif()
+endfunction()
+
+check_sanitizer_available(address HOST_SIM_HAS_ASAN)
+check_sanitizer_available(undefined HOST_SIM_HAS_UBSAN)
+if(HOST_SIM_HAS_ASAN)
+  add_firmware_sanitizer_case(firmware_asan_cases address)
+  message(STATUS "AddressSanitizer firmware witness: enabled")
+else()
+  message(STATUS "AddressSanitizer firmware witness: unavailable")
+endif()
+if(HOST_SIM_HAS_UBSAN)
+  add_firmware_sanitizer_case(firmware_ubsan_cases undefined)
+  message(STATUS "UndefinedBehaviorSanitizer firmware witness: enabled")
+else()
+  message(STATUS "UndefinedBehaviorSanitizer firmware witness: unavailable")
+endif()
 
 add_executable(harness_simulator_original
   simulator/src/original_main.cpp
@@ -180,3 +239,23 @@ add_test(NAME bug_a19_gnrmc_ignored COMMAND firmware_unmasked_bug_cases a19_gnrm
 add_test(NAME bug_a20_logical_index_gap COMMAND firmware_unmasked_bug_cases a20_logical_index_gap)
 add_test(NAME bug_a21_leds_never_become_outputs COMMAND firmware_original_bug_cases a21_leds_never_become_outputs)
 add_test(NAME bug_a23_held_gate_relogs COMMAND firmware_unmasked_bug_cases a23_held_gate_relogs)
+if(HOST_SIM_HAS_ASAN)
+  add_test(NAME sanitizer_a03_nmea_overflow
+    COMMAND ${CMAKE_COMMAND}
+      -DPROGRAM=$<TARGET_FILE:firmware_asan_cases>
+      -DCASE=nmea-overflow
+      -DSANITIZER_ENV=ASAN_OPTIONS=halt_on_error=1:abort_on_error=1:detect_leaks=0
+      -DEXPECTED_1=global-buffer-overflow
+      -DEXPECTED_2=nmea_buf
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/simulator/tests/expect_sanitizer_failure.cmake)
+endif()
+if(HOST_SIM_HAS_UBSAN)
+  add_test(NAME sanitizer_a05_narrow_shift
+    COMMAND ${CMAKE_COMMAND}
+      -DPROGRAM=$<TARGET_FILE:firmware_ubsan_cases>
+      -DCASE=narrow-shift
+      -DSANITIZER_ENV=UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=0
+      "-DEXPECTED_1=runtime error:"
+      -DEXPECTED_2=shift
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/simulator/tests/expect_sanitizer_failure.cmake)
+endif()

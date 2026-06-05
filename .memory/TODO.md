@@ -13,11 +13,11 @@
   - End-state: direction defaults match source documentation; test proves
     pre-state and `set_output()` transition.
   - Owner: `runtime.cpp`, runtime/bug tests.
-- [ ] **Next:** add ASan/UBSan build targets that execute the unchanged firmware path and
+- [x] **Done:** add ASan/UBSan build targets that execute the unchanged firmware path and
   dynamically expose the NMEA overflow and narrow-mask undefined behavior.
   - Prerequisite: none; implement in the same pass as the reset-model correction
     so runtime changes immediately receive sanitizer coverage.
-- [ ] Fix A25 terminal diagnostics and replace A29's unscoped source search with
+- [ ] **Next:** fix A25 terminal diagnostics and replace A29's unscoped source search with
   structural schematic data exposed by `BoardModel`.
 - [ ] Add mutation-style negative controls for high-value witnesses so removal
   of the target action makes the test fail.

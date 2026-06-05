@@ -2,9 +2,11 @@
 
 - Branch: `simulator`.
 - Last validated commit: `0f14a53 docs: catalog simulator-backed issues`.
-- Baseline: 41/41 CTest cases passed on 2026-06-05; analog matrix 14/14 against
+- Baseline before Q1b: 41/41 CTest cases passed; analog matrix 14/14 against
   `/opt/homebrew/bin/ngspice`.
-- Active item: Q1 sanitizer witnesses for A03 and A05.
+- Sanitizer boundary: ASan A03 and UBSan A05 expected-failure witnesses pass with
+  diagnostic matching on Apple Clang 21.
+- Active item: Q1 structural A29 metadata and A25 diagnostics.
 - Known local-only artifact: untracked `build/`.
 - Available boundaries: Apple Clang 21, CMake 4.2.3, clang-format, ngspice.
 - Missing boundary at bootstrap: `kicad-cli` is not installed or on `PATH`.

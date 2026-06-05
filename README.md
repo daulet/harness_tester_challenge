@@ -112,6 +112,18 @@ The broader board-scenario checks can be run with:
 ctest --test-dir build -R '^(scenario_|bug_a03|bug_a08)' --output-on-failure
 ```
 
+When the compiler supports AddressSanitizer and UndefinedBehaviorSanitizer, the
+build also registers two expected-failure firmware witnesses:
+
+```sh
+ctest --test-dir build -R '^sanitizer_' --output-on-failure
+```
+
+These execute the unchanged firmware and pass only when the process terminates
+with the intended diagnostic: the NMEA global-buffer overflow for A03, or the
+invalid narrow shift for A05. The wrapper rejects a clean exit or an unrelated
+crash. CMake reports explicitly when either sanitizer is unavailable.
+
 The test suite runs the unchanged firmware against both known-good and broken
 harness fixtures, then runs the explicit `simulator/variants/firmware_unmasked.ino`
 variant separately. That variant fixes only the initialization/probe blockers so
