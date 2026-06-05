@@ -14,12 +14,12 @@ of the bug thesis.
 
 ## Current count
 
-- 13 bugs passed dedicated simulator evidence tests.
-- 13/13 were accepted by fresh non-interactive Claude review.
-- With ngspice installed, the full simulator suite currently passes 50/50
+- 14 bugs passed dedicated simulator evidence tests.
+- 14/14 were accepted by fresh non-interactive Claude review.
+- With ngspice installed, the full simulator suite currently passes 53/53
   tests, including the separate second-pass scenario checks in
   `SIMULATOR_SCENARIO_REVIEW.md` and the electrical fixture matrix.
-- The `^bug_` filter contains 14 behavioral tests for these 13 bugs because A04
+- The `^bug_` filter contains 15 behavioral tests for these 14 bugs because A04
   has independent status and checksum witnesses. This accepted ledger uses
   source-backed A05 instead of A08; A03 and A05 additionally have
   expected-failure sanitizer witnesses.
@@ -39,12 +39,15 @@ of the bug thesis.
 | A20 | Harness logical index diverges from expander register-bit index after CBL_19 | `bug_a20_logical_index_gap` | ACCEPT: CBL_20 jumps to raw bit 24 while firmware probes bit 20. |
 | A21 | Status LED pins are never configured as outputs | `bug_a21_leds_never_become_outputs` | ACCEPT: no `pinMode(PIN_LED_*, OUTPUT)` exists in source. |
 | A23 | A held valid test gate reruns and re-logs indefinitely | `bug_a23_held_gate_relogs` | ACCEPT: level-gated loop has no edge detect, latch, or one-shot state. |
+| SD-01 | Short log writes are silently accepted | `bug_sd_partial_log_accepted`, `sd_timing_capacity_and_removal` | ACCEPT: unchanged firmware discards all `print`/`println` byte counts, so an authored full-card condition truncates the record without a storage diagnostic. |
 
 ## Fresh Claude review batches
 
 - A01, A02, A03, A04, A05, A06: all ACCEPT.
 - A07, A09, A17, A19: all ACCEPT.
 - A20, A21, A23: all ACCEPT.
+- SD-01: ACCEPT as a distinct ignored-short-write defect; the exact truncation
+  point is authored, while the unchecked return values are source-portable.
 
 The same review accepted checksum-invalid RMC as part of A04's existing
 no-validation root cause. It narrowed CRLF's separate empty parser pass to a
@@ -62,4 +65,4 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-Current result with ngspice installed: 50/50 tests passed.
+Current result with ngspice installed: 53/53 tests passed.

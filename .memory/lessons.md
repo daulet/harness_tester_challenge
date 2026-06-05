@@ -127,3 +127,15 @@
 - Permanent rule: retain discriminating behavior tests, but do not promote a
   mechanism to a defect until its harmful consequence is source-backed and
   observable at the modeled boundary.
+
+## 2026-06-05 - Open success does not prove durable logging
+
+- Symptom: a full modeled card accepts the file open, truncates the timestamp
+  after 12 bytes, and firmware emits no storage diagnostic.
+- Root cause: `log_result()` checks only `File` truthiness and discards every
+  `print`/`println` byte count.
+- Source evidence: `bug_sd_partial_log_accepted` on unchanged firmware plus the
+  capacity and removal controls in `sd_timing_capacity_and_removal`.
+- Permanent rule: storage witnesses must inspect operation results and the
+  resulting artifact; successful initialization/open is not proof of a complete
+  or durable record.

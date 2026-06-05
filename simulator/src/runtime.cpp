@@ -10,6 +10,29 @@
 
 namespace host_sim {
 
+struct SdPresenceTransition {
+  SimTime due{};
+  std::uint64_t sequence = 0;
+  bool available = true;
+};
+
+struct SdCardState {
+  SdCardConfig config;
+  bool active = true;
+  bool available = true;
+  bool initialized = false;
+  std::size_t used_bytes = 0;
+  std::uint64_t next_transition_sequence = 0;
+  std::unordered_map<std::string, std::string> files;
+  std::vector<SdPresenceTransition> transitions;
+};
+
+struct SdFileHandle {
+  std::shared_ptr<SdCardState> card;
+  std::string path;
+  bool open = true;
+};
+
 namespace {
 
 Runtime *g_runtime = nullptr;
@@ -20,6 +43,7 @@ constexpr std::uint64_t kUartBitsPerFrame = 10;
 constexpr unsigned long kMaximumModeledBaud = 10000000;
 constexpr std::uint32_t kDefaultI2cClockHz = 100000;
 constexpr std::uint32_t kMaximumModeledI2cClockHz = 10000000;
+constexpr std::uint8_t kFileWriteMode = 0x01;
 
 std::string format_number(long long value) { return std::to_string(value); }
 
@@ -115,6 +139,35 @@ std::uint64_t i2c_payload_bits(std::size_t byte_count) {
     throw std::overflow_error("I2C payload size overflow");
   }
   return static_cast<std::uint64_t>(byte_count) * kBitsPerByteWithAck;
+}
+
+SimTime scaled_duration(std::size_t units, SimTime unit_time,
+                        const char *label) {
+  if (unit_time < SimTime::zero()) {
+    throw std::invalid_argument(std::string(label) + " must not be negative");
+  }
+  if (unit_time == SimTime::zero() || units == 0) {
+    return SimTime::zero();
+  }
+  const auto count = static_cast<std::uint64_t>(unit_time.count());
+  const auto maximum =
+      static_cast<std::uint64_t>(SimTime::max().count());
+  if (units > maximum / count) {
+    throw std::overflow_error(std::string(label) + " overflow");
+  }
+  return SimTime(static_cast<SimTime::rep>(units * count));
+}
+
+bool next_sd_removal(const SdCardState &state, SimTime now, SimTime &due) {
+  bool found = false;
+  for (const auto &transition : state.transitions) {
+    if (!transition.available && transition.due >= now &&
+        (!found || transition.due < due)) {
+      due = transition.due;
+      found = true;
+    }
+  }
+  return found;
 }
 
 } // namespace
@@ -237,48 +290,159 @@ std::size_t HardwareSerial::write_bytes(const std::string &bytes) {
   return bytes.size();
 }
 
-File::File(std::shared_ptr<std::string> content)
-    : content_(std::move(content)), open_(true) {}
+File::File(std::shared_ptr<SdFileHandle> handle)
+    : handle_(std::move(handle)) {}
 
-File::operator bool() const { return open_ && content_ != nullptr; }
+File::operator bool() const {
+  return handle_ && handle_->open && handle_->card && handle_->card->active;
+}
 
-void File::close() { open_ = false; }
+void File::close() {
+  if (!*this) {
+    return;
+  }
+  const auto card = handle_->card;
+  active_runtime().advance_by(card->config.close_time);
+  handle_->open = false;
+}
 
 std::size_t File::write_bytes(const std::string &bytes) {
-  if (!*this) {
+  if (!*this || bytes.empty()) {
     return 0;
   }
-  *content_ += bytes;
-  return bytes.size();
+  const auto card = handle_->card;
+  if (!card->available || !card->initialized ||
+      card->used_bytes >= card->config.capacity_bytes) {
+    return 0;
+  }
+
+  auto written = std::min(bytes.size(),
+                          card->config.capacity_bytes - card->used_bytes);
+  bool limited_by_removal = false;
+  SimTime removal_time{};
+  if (card->config.write_byte_time > SimTime::zero() &&
+      next_sd_removal(*card, active_runtime().now(), removal_time)) {
+    const auto remaining = removal_time - active_runtime().now();
+    const auto byte_time = card->config.write_byte_time.count();
+    const std::uint64_t before_removal = remaining <= SimTime::zero()
+        ? 0
+        : static_cast<std::uint64_t>((remaining.count() - 1) / byte_time);
+    if (before_removal < written) {
+      written = static_cast<std::size_t>(before_removal);
+      limited_by_removal = true;
+    }
+  }
+
+  if (limited_by_removal) {
+    active_runtime().advance_to(removal_time);
+  } else {
+    active_runtime().advance_by(scaled_duration(
+        written, card->config.write_byte_time, "SD write time"));
+  }
+
+  card->files[handle_->path].append(bytes.data(), written);
+  card->used_bytes += written;
+  return written;
 }
 
-bool SDClass::begin(std::uint8_t) { return available_; }
+SDClass::SDClass() : state_(std::make_shared<SdCardState>()) {}
 
-File SDClass::open(const char *path, std::uint8_t) {
-  if (!available_ || !path) {
+bool SDClass::begin(std::uint8_t) {
+  active_runtime().advance_by(state_->config.initialization_time);
+  state_->initialized = state_->active && state_->available;
+  return state_->initialized;
+}
+
+File SDClass::open(const char *path, std::uint8_t mode) {
+  if (!path || mode != kFileWriteMode) {
     return {};
   }
-  auto &content = files_[path];
-  if (!content) {
-    content = std::make_shared<std::string>();
+  active_runtime().advance_by(state_->config.open_time);
+  if (!state_->active || !state_->available || !state_->initialized) {
+    return {};
   }
-  return File(content);
+  state_->files.try_emplace(path);
+  auto handle = std::make_shared<SdFileHandle>();
+  handle->card = state_;
+  handle->path = path;
+  return File(std::move(handle));
 }
 
-void SDClass::set_available(bool available) { available_ = available; }
+void SDClass::configure(SdCardConfig config) {
+  scaled_duration(1, config.initialization_time, "SD initialization time");
+  scaled_duration(1, config.open_time, "SD open time");
+  scaled_duration(1, config.write_byte_time, "SD write byte time");
+  scaled_duration(1, config.close_time, "SD close time");
+  state_->config = config;
+}
+
+void SDClass::set_available(bool available) {
+  state_->available = available;
+  if (!available) {
+    state_->initialized = false;
+  }
+}
+
+void SDClass::schedule_available(bool available, SimTime delay) {
+  if (state_->next_transition_sequence ==
+      std::numeric_limits<std::uint64_t>::max()) {
+    throw std::overflow_error("SD presence transition sequence exhausted");
+  }
+  if (delay < SimTime::zero()) {
+    throw std::invalid_argument("SD presence delay must not be negative");
+  }
+  if (delay > SimTime::max() - active_runtime().now()) {
+    throw std::overflow_error("SD presence transition time overflow");
+  }
+
+  const auto sequence = state_->next_transition_sequence;
+  state_->transitions.push_back(
+      {active_runtime().now() + delay, sequence, available});
+  std::weak_ptr<SdCardState> weak = state_;
+  try {
+    active_runtime().schedule_after(delay, [weak, sequence, available] {
+      const auto state = weak.lock();
+      if (!state || !state->active) {
+        return;
+      }
+      const auto transition =
+          std::find_if(state->transitions.begin(), state->transitions.end(),
+                       [sequence](const auto &candidate) {
+                         return candidate.sequence == sequence;
+                       });
+      if (transition == state->transitions.end()) {
+        return;
+      }
+      state->available = available;
+      if (!available) {
+        state->initialized = false;
+      }
+      state->transitions.erase(transition);
+    });
+    ++state_->next_transition_sequence;
+  } catch (...) {
+    state_->transitions.pop_back();
+    throw;
+  }
+}
 
 void SDClass::clear() {
-  files_.clear();
-  available_ = true;
+  state_->active = false;
+  state_->available = false;
+  state_->initialized = false;
+  state_->transitions.clear();
+  state_ = std::make_shared<SdCardState>();
 }
 
 const std::string &SDClass::content(const std::string &path) const {
-  const auto iter = files_.find(path);
-  if (iter == files_.end()) {
+  const auto iter = state_->files.find(path);
+  if (iter == state_->files.end()) {
     return empty_;
   }
-  return *iter->second;
+  return iter->second;
 }
+
+std::size_t SDClass::used_bytes() const { return state_->used_bytes; }
 
 void TwoWire::begin() {
   begun_ = true;
@@ -384,6 +548,14 @@ void Runtime::transmit_gps(const std::string &bytes,
 }
 
 void Runtime::set_sd_available(bool available) { SD.set_available(available); }
+
+void Runtime::configure_sd(SdCardConfig config) {
+  SD.configure(std::move(config));
+}
+
+void Runtime::schedule_sd_available(bool available, SimTime delay) {
+  SD.schedule_available(available, delay);
+}
 
 void Runtime::set_i2c_bus_mode(I2cBusMode mode) { i2c_bus_mode_ = mode; }
 
@@ -794,6 +966,8 @@ const std::string &Runtime::serial1_output() const { return Serial1.output(); }
 const std::string &Runtime::sd_content(const std::string &path) const {
   return SD.content(path);
 }
+
+std::size_t Runtime::sd_used_bytes() const { return SD.used_bytes(); }
 
 LedState Runtime::led_state() const {
   LedState state;

@@ -43,10 +43,10 @@
   - Prerequisite: event queue and Q1 expander reset fidelity.
 - [x] **Done:** add NEO-M8 startup/default sentence cadence/checksum behavior.
   - Prerequisite: event queue and timed UART.
-- [ ] **Next:** add SD/FAT latency, capacity, removal, open modes, and
-  partial-write failures.
+- [x] **Done:** add SD/FAT latency, capacity, removal, FILE_WRITE append
+  semantics, and partial-write failures.
   - Prerequisite: event queue.
-- [ ] Model finite Teensy UART RX capacity, overrun accounting, and firmware
+- [ ] **Next:** model finite Teensy UART RX capacity, overrun accounting, and firmware
   polling under continuous default GPS traffic.
   - Prerequisite: timed UART and NEO-M8 sentence cadence.
   - Completion gate for Q2: deterministic tests prove byte availability,

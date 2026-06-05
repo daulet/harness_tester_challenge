@@ -172,6 +172,31 @@ bool run_nmea_crlf_empty_pass() {
               "GPRMC did not parse after the extra LF-only loop");
 }
 
+bool run_sd_partial_log_accepted() {
+  auto runtime = make_runtime(expected_harness());
+  host_sim::SdCardConfig config;
+  config.capacity_bytes = 12;
+  runtime->configure_sd(config);
+  prepare_for_test(*runtime, kValidGprmc);
+  return require(runtime->sd_content("results.txt") == "230394 - 123",
+                 "SD capacity did not truncate the firmware log") &&
+      require(!contains(runtime->serial_output(), "Failed to open log file"),
+              "firmware detected a short write it never checks");
+}
+
+bool run_sd_removed_before_open() {
+  auto runtime = make_runtime(expected_harness());
+  runtime->set_button_pressed(false);
+  runtime->inject_serial1_rx(kValidGprmc);
+  setup();
+  runtime->schedule_sd_available(false, host_sim::SimTime::zero());
+  loop();
+  return require(runtime->sd_content("results.txt").empty(),
+                 "removed SD card unexpectedly accepted a log") &&
+      require(contains(runtime->serial_output(), "Failed to open log file"),
+              "firmware did not report removal before log open");
+}
+
 bool run_a06_all_outputs() {
   auto runtime = make_runtime();
   CY8C9560 driver;
@@ -296,6 +321,8 @@ bool run_case(const std::string& name) {
   if (name == "nmea_crlf_empty_pass") {
     return run_nmea_crlf_empty_pass();
   }
+  if (name == "sd_partial_log_accepted") return run_sd_partial_log_accepted();
+  if (name == "sd_removed_before_open") return run_sd_removed_before_open();
   if (name == "a06_all_outputs") return run_a06_all_outputs();
   if (name == "a07_selected_output_undone") return run_a07_selected_output_undone();
   if (name == "a08_one_matching_row_passes") return run_a08_one_matching_row_passes();

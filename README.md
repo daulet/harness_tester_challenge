@@ -89,6 +89,13 @@ mode isolates downstream firmware behavior. Tests can also inject SCL/SDA
 stuck-low faults, one-shot NACKs, and deterministic clock stretching. This is a
 digital transaction model, not a rise-time, arbitration, or solved-voltage model.
 
+The SD shim models the firmware-used `FILE_WRITE` create/append path with
+configurable initialization/open/write/close time, finite aggregate capacity,
+card removal/reinsertion, and deterministic short-write return values. Neutral
+defaults remain zero-time and effectively unlimited because the design does not
+specify a card. The model does not yet implement file reads, FAT allocation
+geometry, wear, power-loss corruption, or measured card latency distributions.
+
 Build and run:
 
 ```sh

@@ -222,6 +222,17 @@ it remains outside the numbered selection only to preserve the requested exact
 documented input state `0xFF`; `bug_a06_all_outputs` asserts that pre-state,
 executes `set_output()`, and observes all eight registers transition to `0x00`.
 
+## Additional validated twenty-second product defect
+
+**SD-01 - short log writes are silently accepted** is source-distinct from the
+requested numbered selection. `log_result()` checks only whether `SD.open()`
+succeeded and discards all six underlying `write_bytes` counts. With a
+deterministic 12-byte card capacity, `bug_sd_partial_log_accepted` runs the
+unchanged firmware and records only `230394 - 123` without a storage error.
+`sd_timing_capacity_and_removal` proves the model returns the actual short count,
+while `firmware_sd_removed_before_open` proves the existing open-failure
+diagnostic still fires when removal precedes the open.
+
 ## Simulator review repairs now covered
 
 - A06 uses a source-correct reset state and a causal pre/action/post witness.
@@ -236,7 +247,7 @@ executes `set_output()`, and observes all eight registers transition to `0x00`.
 
 ```text
 ctest --test-dir build -R '^(bug_|scenario_)' --output-on-failure
-22/22 candidate witnesses passed
+23/23 candidate witnesses passed
 
-Full suite verified: 50/50 passed
+Full suite verified: 53/53 passed
 ```

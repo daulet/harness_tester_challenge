@@ -4,6 +4,7 @@
 #include <cstdarg>
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <queue>
 #include <string>
@@ -19,6 +20,8 @@ using SimTime = std::chrono::microseconds;
 using EventAction = std::function<void()>;
 
 class Runtime;
+struct SdCardState;
+struct SdFileHandle;
 
 Runtime &active_runtime();
 void set_active_runtime(Runtime *runtime);
@@ -78,10 +81,17 @@ private:
   std::size_t rx_offset_ = 0;
 };
 
+struct SdCardConfig {
+  std::size_t capacity_bytes = std::numeric_limits<std::size_t>::max();
+  SimTime initialization_time{};
+  SimTime open_time{};
+  SimTime write_byte_time{};
+  SimTime close_time{};
+};
+
 class File : public PrintSink {
 public:
   File() = default;
-  explicit File(std::shared_ptr<std::string> content);
 
   explicit operator bool() const;
   void close();
@@ -90,21 +100,28 @@ protected:
   std::size_t write_bytes(const std::string &bytes) override;
 
 private:
-  std::shared_ptr<std::string> content_;
-  bool open_ = false;
+  explicit File(std::shared_ptr<SdFileHandle> handle);
+
+  friend class SDClass;
+
+  std::shared_ptr<SdFileHandle> handle_;
 };
 
 class SDClass {
 public:
+  SDClass();
+
   bool begin(std::uint8_t cs);
   File open(const char *path, std::uint8_t mode);
+  void configure(SdCardConfig config);
   void set_available(bool available);
+  void schedule_available(bool available, SimTime delay);
   void clear();
   const std::string &content(const std::string &path) const;
+  std::size_t used_bytes() const;
 
 private:
-  bool available_ = true;
-  std::unordered_map<std::string, std::shared_ptr<std::string>> files_;
+  std::shared_ptr<SdCardState> state_;
   std::string empty_;
 };
 
@@ -193,6 +210,8 @@ public:
                     unsigned long baud = 9600,
                     SimTime start_delay = SimTime::zero());
   void set_sd_available(bool available);
+  void configure_sd(SdCardConfig config);
+  void schedule_sd_available(bool available, SimTime delay);
   void set_i2c_bus_mode(I2cBusMode mode);
   void set_i2c_line_faults(bool sda_stuck_low, bool scl_stuck_low);
   void set_i2c_clock_stretch(SimTime duration);
@@ -222,6 +241,7 @@ public:
   const std::string &serial_output() const;
   const std::string &serial1_output() const;
   const std::string &sd_content(const std::string &path) const;
+  std::size_t sd_used_bytes() const;
   LedState led_state() const;
   bool wire_begun() const;
   bool expander_accessed() const;
