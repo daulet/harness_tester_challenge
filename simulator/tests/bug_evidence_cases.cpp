@@ -94,7 +94,7 @@ std::unique_ptr<host_sim::Runtime> make_runtime(host_sim::Harness harness = {}) 
 void prepare_for_test(host_sim::Runtime& runtime, const std::string& nmea,
                       bool physically_pressed = false) {
   runtime.set_button_pressed(physically_pressed);
-  runtime.inject_gps(nmea);
+  runtime.inject_serial1_rx(nmea);
   setup();
   loop();
 }
@@ -121,7 +121,7 @@ bool run_a02_missing_output_modes() {
 
 bool run_a03_nmea_buffer_reaches_end_without_guard() {
   auto runtime = make_runtime();
-  runtime->inject_gps(std::string(64, 'x'));
+  runtime->inject_serial1_rx(std::string(64, 'x'));
   setup();
   loop();
   return require(nmea_idx == 64,

@@ -15,6 +15,9 @@ namespace {
 Runtime *g_runtime = nullptr;
 constexpr std::uint8_t kInputMode = 0;
 constexpr std::uint8_t kOutputMode = 1;
+constexpr std::uint64_t kMicrosecondsPerSecond = 1000000;
+constexpr std::uint64_t kUartBitsPerFrame = 10;
+constexpr unsigned long kMaximumModeledBaud = 10000000;
 
 std::string format_number(long long value) { return std::to_string(value); }
 
@@ -38,6 +41,46 @@ std::string vformat(const char *format, va_list args) {
   std::vsnprintf(result.data(), result.size(), format, args);
   result.resize(static_cast<std::size_t>(count));
   return result;
+}
+
+SimTime uart_boundary(std::size_t frame_count, unsigned long baud) {
+  if (baud == 0 || baud > kMaximumModeledBaud) {
+    throw std::invalid_argument("UART baud is outside modeled range");
+  }
+  if (frame_count >
+      std::numeric_limits<std::uint64_t>::max() / kUartBitsPerFrame) {
+    throw std::overflow_error("UART frame count overflow");
+  }
+
+  const auto bits = static_cast<std::uint64_t>(frame_count) * kUartBitsPerFrame;
+  const auto whole_seconds = bits / baud;
+  const auto remaining_bits = bits % baud;
+  const auto max_microseconds =
+      static_cast<std::uint64_t>(SimTime::max().count());
+  if (whole_seconds > max_microseconds / kMicrosecondsPerSecond) {
+    throw std::overflow_error("UART frame time overflow");
+  }
+
+  auto microseconds = whole_seconds * kMicrosecondsPerSecond;
+  const auto remainder_numerator = remaining_bits * kMicrosecondsPerSecond;
+  const auto remainder =
+      (remainder_numerator + baud - 1) / static_cast<std::uint64_t>(baud);
+  if (microseconds > max_microseconds - remainder) {
+    throw std::overflow_error("UART frame time overflow");
+  }
+  microseconds += remainder;
+  return SimTime(static_cast<SimTime::rep>(microseconds));
+}
+
+bool baud_compatible(unsigned long transmitter, unsigned long receiver) {
+  if (transmitter == 0 || receiver == 0 ||
+      transmitter > kMaximumModeledBaud || receiver > kMaximumModeledBaud) {
+    return false;
+  }
+  const auto high = std::max(transmitter, receiver);
+  const auto low = std::min(transmitter, receiver);
+  return static_cast<std::uint64_t>(high - low) * 100 <=
+      static_cast<std::uint64_t>(high) * 2;
 }
 
 } // namespace
@@ -116,6 +159,8 @@ int PrintSink::printf(const char *format, ...) {
   return static_cast<int>(output.size());
 }
 
+HardwareSerial::HardwareSerial(Port port) : port_(port) {}
+
 void HardwareSerial::begin(unsigned long baud) { baud_ = baud; }
 
 int HardwareSerial::available() const {
@@ -148,8 +193,13 @@ const std::string &HardwareSerial::output() const { return tx_; }
 
 bool HardwareSerial::begun() const { return baud_ != 0; }
 
+unsigned long HardwareSerial::baud() const { return baud_; }
+
 std::size_t HardwareSerial::write_bytes(const std::string &bytes) {
   tx_ += bytes;
+  if (port_ == Port::Uart1 && baud_ != 0 && !bytes.empty()) {
+    active_runtime().transmit_serial1(bytes, baud_);
+  }
   return bytes.size();
 }
 
@@ -247,7 +297,7 @@ bool TwoWire::begun() const { return begun_; }
 
 Runtime::Runtime(BoardModel model) : model_(std::move(model)) {
   set_active_runtime(this);
-  reset_expander_state();
+  clear_peripherals();
 }
 
 Runtime::~Runtime() {
@@ -268,7 +318,15 @@ void Runtime::set_harness(Harness harness) { harness_ = std::move(harness); }
 
 void Runtime::set_button_pressed(bool pressed) { button_pressed_ = pressed; }
 
-void Runtime::inject_gps(const std::string &nmea) { Serial1.push_rx(nmea); }
+void Runtime::inject_serial1_rx(const std::string &bytes) {
+  Serial1.push_rx(bytes);
+}
+
+void Runtime::transmit_gps(const std::string &bytes,
+                           unsigned long baud,
+                           SimTime start_delay) {
+  schedule_uart(UartDriver::Gps, bytes, baud, start_delay);
+}
 
 void Runtime::set_sd_available(bool available) { SD.set_available(available); }
 
@@ -281,6 +339,13 @@ void Runtime::clear_peripherals() {
   now_ = SimTime::zero();
   next_event_sequence_ = 0;
   events_ = {};
+  active_uart_frames_.clear();
+  mcu_uart_ready_ = SimTime::zero();
+  gps_uart_ready_ = SimTime::zero();
+  gps_uart_enabled_ = true;
+  uart_unrouted_frames_ = 0;
+  uart_framing_errors_ = 0;
+  uart_contention_frames_ = 0;
   Serial.clear();
   Serial1.clear();
   Wire2.clear();
@@ -346,6 +411,106 @@ void Runtime::advance_by(SimTime duration) {
 }
 
 SimTime Runtime::now() const { return now_; }
+
+void Runtime::transmit_serial1(const std::string &bytes, unsigned long baud) {
+  schedule_uart(UartDriver::Mcu, bytes, baud, SimTime::zero());
+}
+
+void Runtime::schedule_uart(UartDriver driver,
+                            const std::string &bytes,
+                            unsigned long baud,
+                            SimTime start_delay) {
+  if (bytes.empty()) {
+    return;
+  }
+  if (start_delay < SimTime::zero()) {
+    throw std::invalid_argument("UART start delay must not be negative");
+  }
+  if (start_delay > SimTime::max() - now_) {
+    throw std::overflow_error("UART start time overflow");
+  }
+
+  const auto earliest_start = now_ + start_delay;
+  auto &driver_ready =
+      driver == UartDriver::Mcu ? mcu_uart_ready_ : gps_uart_ready_;
+  const auto transmission_start = std::max(earliest_start, driver_ready);
+  const auto source_net = driver == UartDriver::Mcu
+      ? model_.pad("U2", "3").net
+      : model_.pad("U3", "20").net;
+  const auto mcu_rx_net = model_.pad("U2", "2").net;
+  const auto mcu_tx_net = model_.pad("U2", "3").net;
+  const auto gps_tx_net = model_.pad("U3", "20").net;
+
+  for (std::size_t index = 0; index < bytes.size(); ++index) {
+    const auto start_offset = uart_boundary(index, baud);
+    const auto end_offset = uart_boundary(index + 1, baud);
+    if (start_offset > SimTime::max() - transmission_start ||
+        end_offset > SimTime::max() - transmission_start) {
+      throw std::overflow_error("UART transmission time overflow");
+    }
+
+    auto frame = std::make_shared<UartFrame>();
+    frame->driver = driver;
+    frame->net = source_net;
+    frame->start = transmission_start + start_offset;
+    frame->end = transmission_start + end_offset;
+    frame->baud = baud;
+    frame->value = bytes[index];
+    frame->routed_to_mcu_rx =
+        driver == UartDriver::Gps && source_net == mcu_rx_net;
+    frame->shares_mcu_tx =
+        driver == UartDriver::Gps && source_net == mcu_tx_net;
+    frame->shares_gps_tx =
+        driver == UartDriver::Mcu && source_net == gps_tx_net;
+
+    for (const auto &active : active_uart_frames_) {
+      if (active->driver != frame->driver && active->net == frame->net &&
+          active->start < frame->end && frame->start < active->end) {
+        active->collided = true;
+        frame->collided = true;
+      }
+    }
+    active_uart_frames_.push_back(frame);
+
+    schedule_at(frame->start, [this, frame] {
+      if (frame->driver == UartDriver::Gps) {
+        if (frame->shares_mcu_tx && Serial1.begun()) {
+          frame->collided = true;
+        }
+        if (frame->routed_to_mcu_rx) {
+          frame->receiver_ready =
+              Serial1.begun() && baud_compatible(frame->baud, Serial1.baud());
+        }
+      } else if (frame->shares_gps_tx && gps_uart_enabled_) {
+        frame->collided = true;
+      }
+    });
+    schedule_at(frame->end, [this, frame] { finish_uart_frame(frame); });
+  }
+  driver_ready = transmission_start + uart_boundary(bytes.size(), baud);
+}
+
+void Runtime::finish_uart_frame(const std::shared_ptr<UartFrame> &frame) {
+  if (frame->collided) {
+    ++uart_contention_frames_;
+  }
+  if (frame->driver == UartDriver::Gps) {
+    if (!frame->routed_to_mcu_rx) {
+      ++uart_unrouted_frames_;
+    } else if (!frame->collided && frame->receiver_ready && Serial1.begun() &&
+               baud_compatible(frame->baud, Serial1.baud())) {
+      Serial1.push_rx(std::string(1, frame->value));
+    } else if (!frame->collided) {
+      ++uart_framing_errors_;
+    }
+  }
+
+  const auto iter = std::find(active_uart_frames_.begin(),
+                              active_uart_frames_.end(), frame);
+  if (iter != active_uart_frames_.end()) {
+    active_uart_frames_.erase(iter);
+  }
+}
 
 void Runtime::pin_mode(std::uint8_t pin, std::uint8_t mode) {
   pins_[pin].mode = mode;
@@ -441,6 +606,18 @@ LedState Runtime::led_state() const {
 bool Runtime::wire_begun() const { return Wire2.begun(); }
 
 bool Runtime::expander_accessed() const { return expander_.accessed; }
+
+std::size_t Runtime::uart_unrouted_frames() const {
+  return uart_unrouted_frames_;
+}
+
+std::size_t Runtime::uart_framing_errors() const {
+  return uart_framing_errors_;
+}
+
+std::size_t Runtime::uart_contention_frames() const {
+  return uart_contention_frames_;
+}
 
 std::uint8_t Runtime::expander_direction(std::size_t port) const {
   if (port >= expander_.directions.size()) {
@@ -555,8 +732,8 @@ std::array<ExpanderPinDrive, kExpanderPins> Runtime::expander_drives() const {
   return drives;
 }
 
-HardwareSerial Serial;
-HardwareSerial Serial1;
+HardwareSerial Serial(HardwareSerial::Port::Debug);
+HardwareSerial Serial1(HardwareSerial::Port::Uart1);
 TwoWire Wire2;
 SDClass SD;
 

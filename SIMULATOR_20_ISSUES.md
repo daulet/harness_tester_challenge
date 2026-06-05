@@ -101,10 +101,13 @@ optical brightness, manufacturing yield, or production readiness.
 
 - **Proof:** MCU TX1 shares `UBX-TXD` with GPS TXD, while MCU RX1 shares
   `UBX-RXD` with GPS RXD. `scenario_a10_uart_same_direction` verifies the pad,
-  net, and pin-function pairing.
+  net, and pin-function pairing. `uart_timing_and_topology` transmits a physical
+  9600-baud frame through those KiCad-derived nets and observes both zero MCU RX
+  bytes and TX/TX contention; a scoped corrected-PCB mutation receives the byte
+  at the expected stop-bit timestamp.
 - **Claude critique:** ACCEPT.
-- **Boundary:** driver contention and absent receive data are electrical
-  consequences; the hard proof is the same-direction topology.
+- **Boundary:** the digital line model proves routing, frame timing, and opposing
+  active drivers. Exact pin current and voltage remain electrical-model work.
 
 ### 10. A11 - CY_SDA is pulled down to ground
 
@@ -226,5 +229,5 @@ executes `set_output()`, and observes all eight registers transition to `0x00`.
 ctest --test-dir build -R '^(bug_|scenario_)' --output-on-failure
 21/21 candidate witnesses passed
 
-Full suite verified: 43/43 passed
+Full suite verified: 44/44 passed
 ```

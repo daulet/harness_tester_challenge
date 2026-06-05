@@ -82,3 +82,14 @@
 - Source evidence: Q2 event-queue design self-review.
 - Permanent rule: callbacks may enqueue same-time or future work, but advancing
   or clearing the runtime from inside a callback is rejected.
+
+## 2026-06-05 - Idle outputs are still active drivers
+
+- Symptom: a UART contention model that only tracked transmitted bytes missed
+  the board's TX-to-TX conflict when firmware sent no payload.
+- Root cause: an enabled UART TX pin actively drives the idle-high state; every
+  peer start bit drives the shared net low.
+- Source evidence: U2 TX1 and U3 TXD share `UBX-TXD`, and firmware calls
+  `Serial1.begin(9600)` during setup.
+- Permanent rule: line models include enabled idle drive states, not only
+  explicit write intervals.

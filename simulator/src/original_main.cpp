@@ -1,3 +1,4 @@
+#include <chrono>
 #include <iostream>
 
 #include "host_simulator/runtime.h"
@@ -25,9 +26,10 @@ int main() {
       data_path("kicad_files/hardware_challenge.kicad_pcb"),
       data_path("kicad_files/hardware_challenge.kicad_sch")));
   runtime.set_button_pressed(false);
-  runtime.inject_gps(kValidNmea);
 
   setup();
+  runtime.transmit_gps(kValidNmea);
+  runtime.advance_by(std::chrono::milliseconds(100));
   loop();
 
   std::cout << runtime.serial_output();

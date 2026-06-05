@@ -61,6 +61,13 @@ Schematic-versus-PCB disagreements are reported as evidence, but the runtime
 continues on the PCB-derived graph rather than replacing it with schematic
 connectivity.
 
+The runtime uses a deterministic microsecond event queue. Arduino `delay()`
+advances simulated time without sleeping, and physical GPS UART transmissions
+use KiCad-derived U2/U3 pad nets, 8N1 frame timing, configured baud, and
+contention checks. `inject_serial1_rx()` remains an explicit topology-bypassing
+helper for isolated parser and sanitizer witnesses; end-to-end scenarios use
+`transmit_gps()` instead.
+
 Build and run:
 
 ```sh

@@ -52,6 +52,12 @@ protected:
 
 class HardwareSerial : public PrintSink {
 public:
+  enum class Port {
+    Debug,
+    Uart1,
+  };
+
+  explicit HardwareSerial(Port port = Port::Debug);
   void begin(unsigned long baud);
   int available() const;
   int read();
@@ -59,11 +65,13 @@ public:
   void clear();
   const std::string &output() const;
   bool begun() const;
+  unsigned long baud() const;
 
 protected:
   std::size_t write_bytes(const std::string &bytes) override;
 
 private:
+  Port port_;
   unsigned long baud_ = 0;
   std::string rx_;
   std::string tx_;
@@ -137,7 +145,10 @@ public:
 
   void set_harness(Harness harness);
   void set_button_pressed(bool pressed);
-  void inject_gps(const std::string &nmea);
+  void inject_serial1_rx(const std::string &bytes);
+  void transmit_gps(const std::string &bytes,
+                    unsigned long baud = 9600,
+                    SimTime start_delay = SimTime::zero());
   void set_sd_available(bool available);
   void clear_peripherals();
 
@@ -167,6 +178,9 @@ public:
   LedState led_state() const;
   bool wire_begun() const;
   bool expander_accessed() const;
+  std::size_t uart_unrouted_frames() const;
+  std::size_t uart_framing_errors() const;
+  std::size_t uart_contention_frames() const;
   std::uint8_t expander_direction(std::size_t port) const;
   std::uint64_t last_expander_inputs() const;
   std::uint64_t elapsed_ms() const;
@@ -201,11 +215,38 @@ private:
     bool operator()(const Event &left, const Event &right) const;
   };
 
+  enum class UartDriver {
+    Mcu,
+    Gps,
+  };
+
+  struct UartFrame {
+    UartDriver driver = UartDriver::Gps;
+    std::string net;
+    SimTime start{};
+    SimTime end{};
+    unsigned long baud = 0;
+    char value = 0;
+    bool routed_to_mcu_rx = false;
+    bool shares_mcu_tx = false;
+    bool shares_gps_tx = false;
+    bool receiver_ready = false;
+    bool collided = false;
+  };
+
   bool expander_available() const;
   void reset_expander_state();
   std::uint8_t read_expander_register(std::uint8_t reg);
   void write_expander_register(std::uint8_t reg, std::uint8_t value);
   std::array<ExpanderPinDrive, kExpanderPins> expander_drives() const;
+  void transmit_serial1(const std::string &bytes, unsigned long baud);
+  void schedule_uart(UartDriver driver,
+                     const std::string &bytes,
+                     unsigned long baud,
+                     SimTime start_delay);
+  void finish_uart_frame(const std::shared_ptr<UartFrame> &frame);
+
+  friend class HardwareSerial;
 
   BoardModel model_;
   Harness harness_;
@@ -215,6 +256,13 @@ private:
   std::uint64_t next_event_sequence_ = 0;
   std::priority_queue<Event, std::vector<Event>, EventLater> events_;
   bool advancing_ = false;
+  std::vector<std::shared_ptr<UartFrame>> active_uart_frames_;
+  SimTime mcu_uart_ready_{};
+  SimTime gps_uart_ready_{};
+  bool gps_uart_enabled_ = true;
+  std::size_t uart_unrouted_frames_ = 0;
+  std::size_t uart_framing_errors_ = 0;
+  std::size_t uart_contention_frames_ = 0;
   ExpanderState expander_;
 };
 

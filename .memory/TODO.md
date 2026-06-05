@@ -33,10 +33,10 @@
 - [x] **Done:** add a deterministic event queue and advance it through `delay()` and
   explicit time stepping.
   - Prerequisite: Q1 complete.
-- [ ] **Next:** deliver UART bytes according to configured baud and model TX/RX direction,
+- [x] **Done:** deliver UART bytes according to configured baud and model TX/RX direction,
   framing, contention, and receive availability over time.
   - Prerequisite: event queue.
-- [ ] Model button bounce/press duration and reset/power-on timing.
+- [ ] **Next:** model button bounce/press duration and reset/power-on timing.
   - Prerequisite: event queue.
 - [ ] Replace atomic I2C success with line-aware transactions, NACK, stuck-low,
   clock stretching, and device reset/address timing.

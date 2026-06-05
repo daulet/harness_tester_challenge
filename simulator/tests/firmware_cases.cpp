@@ -110,7 +110,7 @@ bool run_case(const Case& test_case) {
   host_sim::Runtime runtime(host_sim::BoardModel::load(pcb, schematic));
   runtime.set_harness(test_case.use_broken_harness ? broken_harness() : known_good_harness());
   runtime.set_button_pressed(false);
-  runtime.inject_gps(kValidNmea);
+  runtime.inject_serial1_rx(kValidNmea);
 
   setup();
   loop();
