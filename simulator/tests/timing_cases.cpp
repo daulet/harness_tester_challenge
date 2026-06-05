@@ -37,6 +37,7 @@ int main() {
   bool ok = true;
   {
     host_sim::Runtime runtime(board_model());
+    runtime.set_i2c_bus_mode(host_sim::I2cBusMode::Ideal);
     CY8C9560 driver;
     ok &= require(driver.begin(),
                   "CY8C9560 driver did not read its ID after reset release");
@@ -45,8 +46,10 @@ int main() {
                       trace[0].asserted && trace[1].time == 10ms &&
                       !trace[1].asserted,
                   "CY8C9560 reset pulse did not match the firmware timeline");
-    ok &= require(runtime.now() == 110ms && !runtime.expander_reset_asserted(),
-                  "CY8C9560 begin did not preserve its 10 ms/100 ms delays");
+    ok &= require(runtime.now() == 110390us &&
+                      !runtime.expander_reset_asserted() &&
+                      runtime.i2c_trace().size() == 2,
+                  "CY8C9560 begin did not preserve reset and ID-read timing");
   }
 
   {

@@ -140,6 +140,43 @@ struct ExpanderResetTransition {
   bool asserted = false;
 };
 
+enum class I2cBusMode {
+  Physical,
+  Ideal,
+};
+
+enum class I2cStatus {
+  Ok,
+  AddressNack,
+  DataNack,
+  BusStuckLow,
+};
+
+enum class I2cOperation {
+  Write,
+  Read,
+};
+
+enum class I2cNack {
+  None,
+  Address,
+  Data,
+};
+
+struct I2cTransaction {
+  SimTime start{};
+  SimTime end{};
+  I2cOperation operation = I2cOperation::Write;
+  I2cStatus status = I2cStatus::Ok;
+  std::uint8_t address = 0;
+  std::size_t requested_bytes = 0;
+  std::size_t transferred_bytes = 0;
+  std::uint32_t clock_hz = 0;
+  bool send_stop = true;
+  bool sda_stuck_low = false;
+  bool scl_stuck_low = false;
+};
+
 class Runtime {
 public:
   explicit Runtime(BoardModel model);
@@ -156,6 +193,10 @@ public:
                     unsigned long baud = 9600,
                     SimTime start_delay = SimTime::zero());
   void set_sd_available(bool available);
+  void set_i2c_bus_mode(I2cBusMode mode);
+  void set_i2c_line_faults(bool sda_stuck_low, bool scl_stuck_low);
+  void set_i2c_clock_stretch(SimTime duration);
+  void set_i2c_next_nack(I2cNack nack);
   void clear_peripherals();
 
   void schedule_at(SimTime due, EventAction action);
@@ -191,6 +232,7 @@ public:
   std::size_t uart_unrouted_frames() const;
   std::size_t uart_framing_errors() const;
   std::size_t uart_contention_frames() const;
+  const std::vector<I2cTransaction> &i2c_trace() const;
   std::uint8_t expander_direction(std::size_t port) const;
   std::uint64_t last_expander_inputs() const;
   std::uint64_t elapsed_ms() const;
@@ -244,7 +286,18 @@ private:
     bool collided = false;
   };
 
+  struct I2cTransfer {
+    I2cStatus status = I2cStatus::Ok;
+    std::vector<std::uint8_t> bytes;
+  };
+
   bool expander_available() const;
+  I2cTransfer perform_i2c_write(std::uint8_t address,
+                                const std::vector<std::uint8_t> &bytes,
+                                std::uint32_t clock_hz, bool send_stop);
+  I2cTransfer perform_i2c_read(std::uint8_t address, std::uint8_t quantity,
+                               std::uint32_t clock_hz, bool send_stop);
+  bool physical_i2c_sda_stuck_low() const;
   void reset_expander_state(bool reset_asserted);
   std::uint8_t read_expander_register(std::uint8_t reg);
   void write_expander_register(std::uint8_t reg, std::uint8_t value);
@@ -257,6 +310,7 @@ private:
   void finish_uart_frame(const std::shared_ptr<UartFrame> &frame);
 
   friend class HardwareSerial;
+  friend class TwoWire;
 
   BoardModel model_;
   Harness harness_;
@@ -273,6 +327,12 @@ private:
   std::size_t uart_unrouted_frames_ = 0;
   std::size_t uart_framing_errors_ = 0;
   std::size_t uart_contention_frames_ = 0;
+  I2cBusMode i2c_bus_mode_ = I2cBusMode::Physical;
+  bool i2c_injected_sda_stuck_low_ = false;
+  bool i2c_injected_scl_stuck_low_ = false;
+  SimTime i2c_clock_stretch_{};
+  I2cNack i2c_next_nack_ = I2cNack::None;
+  std::vector<I2cTransaction> i2c_trace_;
   std::vector<ExpanderResetTransition> expander_reset_trace_;
   ExpanderState expander_;
 };

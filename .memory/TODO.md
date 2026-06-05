@@ -38,10 +38,10 @@
   - Prerequisite: event queue.
 - [x] **Done:** model button bounce/press duration and reset/power-on timing.
   - Prerequisite: event queue.
-- [ ] **Next:** replace atomic I2C success with line-aware transactions, NACK, stuck-low,
+- [x] **Done:** replace atomic I2C success with line-aware transactions, NACK, stuck-low,
   clock stretching, and device reset/address timing.
   - Prerequisite: event queue and Q1 expander reset fidelity.
-- [ ] Add NEO-M8 startup/default sentence cadence/checksum behavior and SD/FAT
+- [ ] **Next:** add NEO-M8 startup/default sentence cadence/checksum behavior and SD/FAT
   latency, capacity, removal, open modes, and partial-write failures.
   - Prerequisite: event queue and timed UART.
   - Completion gate for Q2: deterministic tests prove byte availability,

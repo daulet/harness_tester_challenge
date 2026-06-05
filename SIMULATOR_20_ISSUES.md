@@ -113,10 +113,13 @@ optical brightness, manufacturing yield, or production readiness.
 
 - **Proof:** R3 is 4.7 kOhm between `CY_SDA` and GND, while the adjacent SCL
   resistor is correctly tied to +3.3 V. `scenario_a11_sda_pull_down` verifies
-  the bad SDA topology.
+  the bad SDA topology. `i2c_timing_and_faults` then starts an unchanged
+  `Wire2` transaction in physical mode and observes a stuck-low bus before
+  START, with no expander register access or simulated-time advance.
 - **Claude critique:** ACCEPT.
-- **Boundary:** the scenario test proves topology; exact bus voltage is not
-  derived from the board netlist by ngspice.
+- **Boundary:** the runtime derives the digital stuck-low state from parsed R3
+  pads. It does not yet solve exact voltage/rise time, controller timeout or
+  bus-clear recovery, or feed ngspice levels back into firmware.
 
 ### 11. A12 - RGB LED channels have no series resistors
 
@@ -229,5 +232,5 @@ executes `set_output()`, and observes all eight registers transition to `0x00`.
 ctest --test-dir build -R '^(bug_|scenario_)' --output-on-failure
 21/21 candidate witnesses passed
 
-Full suite verified: 45/45 passed
+Full suite verified: 46/46 passed
 ```

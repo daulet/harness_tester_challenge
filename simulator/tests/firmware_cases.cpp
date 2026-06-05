@@ -108,6 +108,7 @@ bool run_case(const Case& test_case) {
   const auto pcb = data_path("kicad_files/hardware_challenge.kicad_pcb");
   const auto schematic = data_path("kicad_files/hardware_challenge.kicad_sch");
   host_sim::Runtime runtime(host_sim::BoardModel::load(pcb, schematic));
+  runtime.set_i2c_bus_mode(host_sim::I2cBusMode::Ideal);
   runtime.set_harness(test_case.use_broken_harness ? broken_harness() : known_good_harness());
   runtime.set_button_pressed(false);
   runtime.inject_serial1_rx(kValidNmea);

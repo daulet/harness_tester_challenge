@@ -74,6 +74,13 @@ The CY8C9560 model follows the selected silicon rather than the misleading
 pull-ups, held-reset pins are high impedance, and the unchanged driver advances
 through its 10 ms reset pulse plus 100 ms recovery delay in simulated time.
 
+I2C controller calls now consume bit-level bus time and report Arduino-compatible
+address-NACK, data-NACK, and other-error statuses. Physical mode derives the
+board's SDA stuck-low state from R3's parsed `CY_SDA`-to-GND pads; explicit ideal
+mode isolates downstream firmware behavior. Tests can also inject SCL/SDA
+stuck-low faults, one-shot NACKs, and deterministic clock stretching. This is a
+digital transaction model, not a rise-time, arbitration, or solved-voltage model.
+
 Build and run:
 
 ```sh

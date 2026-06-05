@@ -87,6 +87,7 @@ bool require(bool condition, const std::string& message) {
 
 std::unique_ptr<host_sim::Runtime> make_runtime(host_sim::Harness harness = {}) {
   auto runtime = std::make_unique<host_sim::Runtime>(board_model());
+  runtime->set_i2c_bus_mode(host_sim::I2cBusMode::Ideal);
   runtime->set_harness(std::move(harness));
   return runtime;
 }

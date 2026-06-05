@@ -18,6 +18,8 @@ constexpr std::uint8_t kOutputMode = 1;
 constexpr std::uint64_t kMicrosecondsPerSecond = 1000000;
 constexpr std::uint64_t kUartBitsPerFrame = 10;
 constexpr unsigned long kMaximumModeledBaud = 10000000;
+constexpr std::uint32_t kDefaultI2cClockHz = 100000;
+constexpr std::uint32_t kMaximumModeledI2cClockHz = 10000000;
 
 std::string format_number(long long value) { return std::to_string(value); }
 
@@ -81,6 +83,38 @@ bool baud_compatible(unsigned long transmitter, unsigned long receiver) {
   const auto low = std::min(transmitter, receiver);
   return static_cast<std::uint64_t>(high - low) * 100 <=
       static_cast<std::uint64_t>(high) * 2;
+}
+
+SimTime i2c_duration(std::uint64_t bits, std::uint32_t clock_hz) {
+  if (clock_hz == 0 || clock_hz > kMaximumModeledI2cClockHz) {
+    throw std::invalid_argument("I2C clock is outside modeled range");
+  }
+
+  const auto whole_seconds = bits / clock_hz;
+  const auto remaining_bits = bits % clock_hz;
+  const auto max_microseconds =
+      static_cast<std::uint64_t>(SimTime::max().count());
+  if (whole_seconds > max_microseconds / kMicrosecondsPerSecond) {
+    throw std::overflow_error("I2C transaction time overflow");
+  }
+
+  auto microseconds = whole_seconds * kMicrosecondsPerSecond;
+  const auto remainder_numerator = remaining_bits * kMicrosecondsPerSecond;
+  const auto remainder = (remainder_numerator + clock_hz - 1) / clock_hz;
+  if (microseconds > max_microseconds - remainder) {
+    throw std::overflow_error("I2C transaction time overflow");
+  }
+  microseconds += remainder;
+  return SimTime(static_cast<SimTime::rep>(microseconds));
+}
+
+std::uint64_t i2c_payload_bits(std::size_t byte_count) {
+  constexpr std::uint64_t kBitsPerByteWithAck = 9;
+  if (byte_count >
+      (std::numeric_limits<std::uint64_t>::max() - 11) / kBitsPerByteWithAck) {
+    throw std::overflow_error("I2C payload size overflow");
+  }
+  return static_cast<std::uint64_t>(byte_count) * kBitsPerByteWithAck;
 }
 
 } // namespace
@@ -248,6 +282,9 @@ const std::string &SDClass::content(const std::string &path) const {
 
 void TwoWire::begin() {
   begun_ = true;
+  if (clock_hz_ == 0) {
+    clock_hz_ = kDefaultI2cClockHz;
+  }
   active_runtime().mark_wire_begun();
 }
 
@@ -263,15 +300,29 @@ std::size_t TwoWire::write(std::uint8_t value) {
   return 1;
 }
 
-std::uint8_t TwoWire::endTransmission(bool) {
+std::uint8_t TwoWire::endTransmission(bool send_stop) {
   if (!begun_) {
     return 4;
   }
-  return active_runtime().i2c_write(address_, tx_) ? 0 : 4;
+  const auto transfer =
+      active_runtime().perform_i2c_write(address_, tx_, clock_hz_, send_stop);
+  switch (transfer.status) {
+  case I2cStatus::Ok:
+    return 0;
+  case I2cStatus::AddressNack:
+    return 2;
+  case I2cStatus::DataNack:
+    return 3;
+  case I2cStatus::BusStuckLow:
+    return 4;
+  }
+  return 4;
 }
 
 std::uint8_t TwoWire::requestFrom(std::uint8_t address, std::uint8_t quantity) {
-  rx_ = begun_ ? active_runtime().i2c_read(address, quantity)
+  rx_ = begun_ ? active_runtime()
+                     .perform_i2c_read(address, quantity, clock_hz_, true)
+                     .bytes
                : std::vector<std::uint8_t>{};
   rx_offset_ = 0;
   return static_cast<std::uint8_t>(rx_.size());
@@ -334,6 +385,22 @@ void Runtime::transmit_gps(const std::string &bytes,
 
 void Runtime::set_sd_available(bool available) { SD.set_available(available); }
 
+void Runtime::set_i2c_bus_mode(I2cBusMode mode) { i2c_bus_mode_ = mode; }
+
+void Runtime::set_i2c_line_faults(bool sda_stuck_low, bool scl_stuck_low) {
+  i2c_injected_sda_stuck_low_ = sda_stuck_low;
+  i2c_injected_scl_stuck_low_ = scl_stuck_low;
+}
+
+void Runtime::set_i2c_clock_stretch(SimTime duration) {
+  if (duration < SimTime::zero()) {
+    throw std::invalid_argument("I2C clock stretch must not be negative");
+  }
+  i2c_clock_stretch_ = duration;
+}
+
+void Runtime::set_i2c_next_nack(I2cNack nack) { i2c_next_nack_ = nack; }
+
 void Runtime::clear_peripherals() {
   if (advancing_) {
     throw std::logic_error("cannot clear runtime while advancing time");
@@ -350,6 +417,12 @@ void Runtime::clear_peripherals() {
   uart_unrouted_frames_ = 0;
   uart_framing_errors_ = 0;
   uart_contention_frames_ = 0;
+  i2c_bus_mode_ = I2cBusMode::Physical;
+  i2c_injected_sda_stuck_low_ = false;
+  i2c_injected_scl_stuck_low_ = false;
+  i2c_clock_stretch_ = SimTime::zero();
+  i2c_next_nack_ = I2cNack::None;
+  i2c_trace_.clear();
   expander_reset_trace_.clear();
   Serial.clear();
   Serial1.clear();
@@ -555,12 +628,139 @@ void Runtime::delay(std::uint32_t milliseconds) {
       std::chrono::milliseconds(milliseconds)));
 }
 
+Runtime::I2cTransfer
+Runtime::perform_i2c_write(std::uint8_t address,
+                           const std::vector<std::uint8_t> &bytes,
+                           std::uint32_t clock_hz, bool send_stop) {
+  I2cTransfer transfer;
+  const auto start = now_;
+  const bool sda_stuck_low =
+      i2c_injected_sda_stuck_low_ ||
+      (i2c_bus_mode_ == I2cBusMode::Physical && physical_i2c_sda_stuck_low());
+  const bool scl_stuck_low = i2c_injected_scl_stuck_low_;
+  if (sda_stuck_low || scl_stuck_low) {
+    transfer.status = I2cStatus::BusStuckLow;
+    i2c_trace_.push_back({start, now_, I2cOperation::Write, transfer.status,
+                          address, bytes.size(), 0, clock_hz, send_stop,
+                          sda_stuck_low, scl_stuck_low});
+    return transfer;
+  }
+
+  const auto injected_nack = i2c_next_nack_;
+  std::uint64_t bits = 1 + 9 + (send_stop ? 1 : 0);
+  bool add_clock_stretch = false;
+  if (injected_nack == I2cNack::Address) {
+    i2c_next_nack_ = I2cNack::None;
+    transfer.status = I2cStatus::AddressNack;
+  } else if (address != 0x20 || !expander_available()) {
+    transfer.status = I2cStatus::AddressNack;
+  } else if (injected_nack == I2cNack::Data && !bytes.empty()) {
+    i2c_next_nack_ = I2cNack::None;
+    transfer.status = I2cStatus::DataNack;
+    bits += 9;
+    add_clock_stretch = true;
+  } else {
+    bits += i2c_payload_bits(bytes.size());
+    add_clock_stretch = true;
+  }
+
+  auto duration = i2c_duration(bits, clock_hz);
+  if (add_clock_stretch) {
+    if (i2c_clock_stretch_ > SimTime::max() - duration) {
+      throw std::overflow_error("I2C clock stretch time overflow");
+    }
+    duration += i2c_clock_stretch_;
+  }
+  advance_by(duration);
+
+  if (transfer.status == I2cStatus::Ok) {
+    if (bytes.empty()) {
+      if (expander_available()) {
+        i2c_write(address, bytes);
+      }
+    } else if (i2c_write(address, bytes)) {
+      transfer.bytes = bytes;
+    } else {
+      transfer.status = I2cStatus::DataNack;
+    }
+  }
+
+  i2c_trace_.push_back({start, now_, I2cOperation::Write, transfer.status,
+                        address, bytes.size(), transfer.bytes.size(), clock_hz,
+                        send_stop, false, false});
+  return transfer;
+}
+
+Runtime::I2cTransfer Runtime::perform_i2c_read(std::uint8_t address,
+                                               std::uint8_t quantity,
+                                               std::uint32_t clock_hz,
+                                               bool send_stop) {
+  I2cTransfer transfer;
+  const auto start = now_;
+  const bool sda_stuck_low =
+      i2c_injected_sda_stuck_low_ ||
+      (i2c_bus_mode_ == I2cBusMode::Physical && physical_i2c_sda_stuck_low());
+  const bool scl_stuck_low = i2c_injected_scl_stuck_low_;
+  if (sda_stuck_low || scl_stuck_low) {
+    transfer.status = I2cStatus::BusStuckLow;
+    i2c_trace_.push_back({start, now_, I2cOperation::Read, transfer.status,
+                          address, quantity, 0, clock_hz, send_stop,
+                          sda_stuck_low, scl_stuck_low});
+    return transfer;
+  }
+
+  const bool address_nack = i2c_next_nack_ == I2cNack::Address;
+  if (address_nack) {
+    i2c_next_nack_ = I2cNack::None;
+  }
+
+  std::uint64_t bits = 1 + 9 + (send_stop ? 1 : 0);
+  bool add_clock_stretch = false;
+  if (address_nack || address != 0x20 || !expander_available()) {
+    transfer.status = I2cStatus::AddressNack;
+  } else {
+    bits += i2c_payload_bits(quantity);
+    add_clock_stretch = true;
+  }
+
+  auto duration = i2c_duration(bits, clock_hz);
+  if (add_clock_stretch) {
+    if (i2c_clock_stretch_ > SimTime::max() - duration) {
+      throw std::overflow_error("I2C clock stretch time overflow");
+    }
+    duration += i2c_clock_stretch_;
+  }
+  advance_by(duration);
+
+  if (transfer.status == I2cStatus::Ok) {
+    transfer.bytes = i2c_read(address, quantity);
+    if (transfer.bytes.size() != quantity) {
+      transfer.status = I2cStatus::DataNack;
+    }
+  }
+
+  i2c_trace_.push_back({start, now_, I2cOperation::Read, transfer.status,
+                        address, quantity, transfer.bytes.size(), clock_hz,
+                        send_stop, false, false});
+  return transfer;
+}
+
+bool Runtime::physical_i2c_sda_stuck_low() const {
+  const auto &first = model_.pad("R3", "1").net;
+  const auto &second = model_.pad("R3", "2").net;
+  return (first == "CY_SDA" && second == "GND") ||
+         (first == "GND" && second == "CY_SDA");
+}
+
 bool Runtime::i2c_write(std::uint8_t address,
                         const std::vector<std::uint8_t> &bytes) {
-  if (address != 0x20 || !expander_available() || bytes.empty()) {
+  if (address != 0x20 || !expander_available()) {
     return false;
   }
   expander_.accessed = true;
+  if (bytes.empty()) {
+    return true;
+  }
   expander_.register_pointer = bytes.front();
   for (std::size_t index = 1; index < bytes.size(); ++index) {
     write_expander_register(expander_.register_pointer++, bytes[index]);
@@ -637,6 +837,10 @@ std::size_t Runtime::uart_framing_errors() const {
 
 std::size_t Runtime::uart_contention_frames() const {
   return uart_contention_frames_;
+}
+
+const std::vector<I2cTransaction> &Runtime::i2c_trace() const {
+  return i2c_trace_;
 }
 
 std::uint8_t Runtime::expander_direction(std::size_t port) const {

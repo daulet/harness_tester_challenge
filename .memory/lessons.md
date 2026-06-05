@@ -103,3 +103,15 @@
   active-high XRES with an internal pull-down and high-Z held-reset pins.
 - Permanent rule: peripheral polarity and reset behavior come from the selected
   silicon reference; board names remain evidence of design intent or error.
+
+## 2026-06-05 - Physical faults and downstream witnesses need separate modes
+
+- Symptom: making the actual SDA pull-down effective would prevent every
+  expander transaction and mask firmware defects beyond I2C initialization.
+- Root cause: a single always-ideal or always-physical bus cannot serve both
+  board-level causality and isolated downstream firmware evidence.
+- Source evidence: R3 connects `CY_SDA` to GND, while A06-A09 require successful
+  expander transactions to reach their target behavior.
+- Permanent rule: end-to-end tests default to parsed physical topology; tests
+  that intentionally isolate a downstream layer must opt into ideal mode and
+  state that boundary explicitly.

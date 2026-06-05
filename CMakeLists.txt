@@ -186,6 +186,19 @@ target_compile_options(timing_cases PRIVATE
   -Wpedantic
 )
 
+add_executable(i2c_cases
+  simulator/tests/i2c_cases.cpp
+)
+target_link_libraries(i2c_cases PRIVATE host_simulator)
+target_compile_definitions(i2c_cases PRIVATE
+  HOST_SIM_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
+)
+target_compile_options(i2c_cases PRIVATE
+  -Wall
+  -Wextra
+  -Wpedantic
+)
+
 add_executable(scenario_cases
   simulator/tests/scenario_cases.cpp
 )
@@ -221,6 +234,7 @@ add_test(NAME pcb_source_parity COMMAND board_model_cases)
 add_test(NAME runtime_defaults COMMAND runtime_cases)
 add_test(NAME uart_timing_and_topology COMMAND uart_cases)
 add_test(NAME button_and_reset_timing COMMAND timing_cases)
+add_test(NAME i2c_timing_and_faults COMMAND i2c_cases)
 add_test(NAME scenario_a05_narrow_masks COMMAND scenario_cases a05_narrow_masks)
 add_test(NAME scenario_a10_uart_same_direction COMMAND scenario_cases a10_uart_same_direction)
 add_test(NAME scenario_a11_sda_pull_down COMMAND scenario_cases a11_sda_pull_down)
