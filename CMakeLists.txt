@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(host_simulator
+  simulator/src/analog.cpp
   simulator/src/board.cpp
   simulator/src/runtime.cpp
 )
@@ -43,8 +44,31 @@ function(add_firmware_case target firmware_source)
   )
 endfunction()
 
+function(add_bug_evidence_case target firmware_source)
+  set_source_files_properties(${firmware_source} PROPERTIES
+    LANGUAGE CXX
+    COMPILE_OPTIONS "-x;c++"
+  )
+  add_executable(${target}
+    simulator/tests/bug_evidence_cases.cpp
+    ${firmware_source}
+    firmware/CY8C9560.cpp
+  )
+  target_link_libraries(${target} PRIVATE host_simulator)
+  target_compile_definitions(${target} PRIVATE
+    HOST_SIM_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
+  )
+  target_compile_options(${target} PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+  )
+endfunction()
+
 add_firmware_case(firmware_original_cases firmware/firmware.ino)
 add_firmware_case(firmware_unmasked_cases simulator/variants/firmware_unmasked.ino)
+add_bug_evidence_case(firmware_original_bug_cases firmware/firmware.ino)
+add_bug_evidence_case(firmware_unmasked_bug_cases simulator/variants/firmware_unmasked.ino)
 
 add_executable(harness_simulator_original
   simulator/src/original_main.cpp
@@ -76,11 +100,83 @@ target_compile_definitions(runtime_cases PRIVATE
   HOST_SIM_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
+add_executable(scenario_cases
+  simulator/tests/scenario_cases.cpp
+)
+target_link_libraries(scenario_cases PRIVATE host_simulator)
+target_compile_definitions(scenario_cases PRIVATE
+  HOST_SIM_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
+)
+
+find_program(NGSPICE_EXECUTABLE NAMES ngspice)
+if(NGSPICE_EXECUTABLE)
+  message(STATUS "ngspice analog backend: ${NGSPICE_EXECUTABLE}")
+else()
+  set(NGSPICE_EXECUTABLE "ngspice")
+  message(STATUS "ngspice not found; analog tests will be reported as skipped")
+endif()
+
+add_executable(analog_cases
+  simulator/tests/analog_cases.cpp
+)
+target_link_libraries(analog_cases PRIVATE host_simulator)
+target_compile_definitions(analog_cases PRIVATE
+  HOST_SIM_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
+  HOST_SIM_NGSPICE="${NGSPICE_EXECUTABLE}"
+)
+target_compile_options(analog_cases PRIVATE
+  -Wall
+  -Wextra
+  -Wpedantic
+)
+
 enable_testing()
-add_test(NAME pcb_overlay_model COMMAND board_model_cases)
+add_test(NAME pcb_source_parity COMMAND board_model_cases)
 add_test(NAME runtime_defaults COMMAND runtime_cases)
+add_test(NAME scenario_a05_narrow_masks COMMAND scenario_cases a05_narrow_masks)
+add_test(NAME scenario_a10_uart_same_direction COMMAND scenario_cases a10_uart_same_direction)
+add_test(NAME scenario_a11_sda_pull_down COMMAND scenario_cases a11_sda_pull_down)
+add_test(NAME scenario_a12_led_no_series_resistors COMMAND scenario_cases a12_led_no_series_resistors)
+add_test(NAME scenario_a16_d3_anode_isolated COMMAND scenario_cases a16_d3_anode_isolated)
+add_test(NAME scenario_a18_lna_vcc_rf COMMAND scenario_cases a18_lna_vcc_rf)
+add_test(NAME scenario_a25_reverse_polarity_path COMMAND scenario_cases a25_reverse_polarity_path)
+add_test(NAME scenario_a29_u4_wrong_footprint COMMAND scenario_cases a29_u4_wrong_footprint)
+set(ANALOG_CASES
+  nominal
+  reverse_polarity
+  transient_clamp
+  open_circuit
+  unexpected_short
+  leakage
+  elevated_contact_resistance
+  intermittent_connection
+  bad_pull_network
+  led_overcurrent
+  led_no_current
+  uart_level_mismatch
+  i2c_pull_failure
+  runtime_control
+)
+foreach(analog_case IN LISTS ANALOG_CASES)
+  add_test(NAME analog_${analog_case} COMMAND analog_cases ${analog_case})
+  set_tests_properties(analog_${analog_case} PROPERTIES SKIP_RETURN_CODE 77)
+endforeach()
 add_test(NAME original_good COMMAND firmware_original_cases original-good)
 add_test(NAME original_broken COMMAND firmware_original_cases original-broken)
 add_test(NAME patched_good_schematic COMMAND firmware_unmasked_cases patched-good-schematic)
 add_test(NAME patched_broken_schematic COMMAND firmware_unmasked_cases patched-broken-schematic)
-add_test(NAME patched_good_asdrawn COMMAND firmware_unmasked_cases patched-good-asdrawn)
+add_test(NAME bug_a01_missing_begin COMMAND firmware_original_bug_cases a01_missing_begin)
+add_test(NAME bug_a02_missing_output_modes COMMAND firmware_original_bug_cases a02_missing_output_modes)
+add_test(NAME bug_a03_nmea_buffer_reaches_end_without_guard
+  COMMAND firmware_original_bug_cases a03_nmea_buffer_reaches_end_without_guard)
+add_test(NAME bug_a04_invalid_status_accepted COMMAND firmware_unmasked_bug_cases a04_invalid_status_accepted)
+add_test(NAME bug_a06_all_outputs COMMAND firmware_original_bug_cases a06_all_outputs)
+add_test(NAME bug_a07_selected_output_undone COMMAND firmware_original_bug_cases a07_selected_output_undone)
+add_test(NAME bug_a08_one_matching_row_passes
+  COMMAND firmware_unmasked_bug_cases a08_one_matching_row_passes)
+add_test(NAME bug_a09_failed_status_overwritten COMMAND firmware_unmasked_bug_cases a09_failed_status_overwritten)
+add_test(NAME bug_a17_pressed_button_does_not_run COMMAND firmware_unmasked_bug_cases a17_pressed_button_does_not_run)
+add_test(NAME bug_a19_gnrmc_ignored COMMAND firmware_unmasked_bug_cases a19_gnrmc_ignored)
+add_test(NAME bug_a20_logical_index_gap COMMAND firmware_unmasked_bug_cases a20_logical_index_gap)
+add_test(NAME bug_a21_leds_never_become_outputs COMMAND firmware_original_bug_cases a21_leds_never_become_outputs)
+add_test(NAME bug_a23_held_gate_relogs COMMAND firmware_unmasked_bug_cases a23_held_gate_relogs)

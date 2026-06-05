@@ -11,17 +11,17 @@ namespace host_sim {
 
 namespace {
 
-Runtime* g_runtime = nullptr;
+Runtime *g_runtime = nullptr;
+constexpr std::uint8_t kInputMode = 0;
+constexpr std::uint8_t kOutputMode = 1;
 
-std::string format_number(long long value) {
-  return std::to_string(value);
-}
+std::string format_number(long long value) { return std::to_string(value); }
 
 std::string format_number(unsigned long long value) {
   return std::to_string(value);
 }
 
-std::string vformat(const char* format, va_list args) {
+std::string vformat(const char *format, va_list args) {
   std::array<char, 1024> buffer{};
   va_list copy;
   va_copy(copy, args);
@@ -39,24 +39,22 @@ std::string vformat(const char* format, va_list args) {
   return result;
 }
 
-}  // namespace
+} // namespace
 
-Runtime& active_runtime() {
+Runtime &active_runtime() {
   if (!g_runtime) {
     throw std::runtime_error("no active host simulator runtime");
   }
   return *g_runtime;
 }
 
-void set_active_runtime(Runtime* runtime) {
-  g_runtime = runtime;
-}
+void set_active_runtime(Runtime *runtime) { g_runtime = runtime; }
 
-std::size_t PrintSink::print(const char* value) {
+std::size_t PrintSink::print(const char *value) {
   return write_bytes(value ? value : "");
 }
 
-std::size_t PrintSink::print(const std::string& value) {
+std::size_t PrintSink::print(const std::string &value) {
   return write_bytes(value);
 }
 
@@ -92,31 +90,23 @@ std::size_t PrintSink::print(bool value) {
   return write_bytes(value ? "1" : "0");
 }
 
-std::size_t PrintSink::println() {
-  return write_bytes("\n");
-}
+std::size_t PrintSink::println() { return write_bytes("\n"); }
 
-std::size_t PrintSink::println(const char* value) {
+std::size_t PrintSink::println(const char *value) {
   return print(value) + println();
 }
 
-std::size_t PrintSink::println(const std::string& value) {
+std::size_t PrintSink::println(const std::string &value) {
   return print(value) + println();
 }
 
-std::size_t PrintSink::println(char value) {
-  return print(value) + println();
-}
+std::size_t PrintSink::println(char value) { return print(value) + println(); }
 
-std::size_t PrintSink::println(int value) {
-  return print(value) + println();
-}
+std::size_t PrintSink::println(int value) { return print(value) + println(); }
 
-std::size_t PrintSink::println(bool value) {
-  return print(value) + println();
-}
+std::size_t PrintSink::println(bool value) { return print(value) + println(); }
 
-int PrintSink::printf(const char* format, ...) {
+int PrintSink::printf(const char *format, ...) {
   va_list args;
   va_start(args, format);
   const auto output = vformat(format, args);
@@ -125,9 +115,7 @@ int PrintSink::printf(const char* format, ...) {
   return static_cast<int>(output.size());
 }
 
-void HardwareSerial::begin(unsigned long baud) {
-  baud_ = baud;
-}
+void HardwareSerial::begin(unsigned long baud) { baud_ = baud; }
 
 int HardwareSerial::available() const {
   return static_cast<int>(rx_.size() - rx_offset_);
@@ -140,7 +128,7 @@ int HardwareSerial::read() {
   return static_cast<unsigned char>(rx_[rx_offset_++]);
 }
 
-void HardwareSerial::push_rx(const std::string& bytes) {
+void HardwareSerial::push_rx(const std::string &bytes) {
   if (rx_offset_ == rx_.size()) {
     rx_.clear();
     rx_offset_ = 0;
@@ -155,31 +143,23 @@ void HardwareSerial::clear() {
   rx_offset_ = 0;
 }
 
-const std::string& HardwareSerial::output() const {
-  return tx_;
-}
+const std::string &HardwareSerial::output() const { return tx_; }
 
-bool HardwareSerial::begun() const {
-  return baud_ != 0;
-}
+bool HardwareSerial::begun() const { return baud_ != 0; }
 
-std::size_t HardwareSerial::write_bytes(const std::string& bytes) {
+std::size_t HardwareSerial::write_bytes(const std::string &bytes) {
   tx_ += bytes;
   return bytes.size();
 }
 
-File::File(std::shared_ptr<std::string> content) : content_(std::move(content)), open_(true) {
-}
+File::File(std::shared_ptr<std::string> content)
+    : content_(std::move(content)), open_(true) {}
 
-File::operator bool() const {
-  return open_ && content_ != nullptr;
-}
+File::operator bool() const { return open_ && content_ != nullptr; }
 
-void File::close() {
-  open_ = false;
-}
+void File::close() { open_ = false; }
 
-std::size_t File::write_bytes(const std::string& bytes) {
+std::size_t File::write_bytes(const std::string &bytes) {
   if (!*this) {
     return 0;
   }
@@ -187,31 +167,27 @@ std::size_t File::write_bytes(const std::string& bytes) {
   return bytes.size();
 }
 
-bool SDClass::begin(std::uint8_t) {
-  return available_;
-}
+bool SDClass::begin(std::uint8_t) { return available_; }
 
-File SDClass::open(const char* path, std::uint8_t) {
+File SDClass::open(const char *path, std::uint8_t) {
   if (!available_ || !path) {
     return {};
   }
-  auto& content = files_[path];
+  auto &content = files_[path];
   if (!content) {
     content = std::make_shared<std::string>();
   }
   return File(content);
 }
 
-void SDClass::set_available(bool available) {
-  available_ = available;
-}
+void SDClass::set_available(bool available) { available_ = available; }
 
 void SDClass::clear() {
   files_.clear();
   available_ = true;
 }
 
-const std::string& SDClass::content(const std::string& path) const {
+const std::string &SDClass::content(const std::string &path) const {
   const auto iter = files_.find(path);
   if (iter == files_.end()) {
     return empty_;
@@ -224,9 +200,7 @@ void TwoWire::begin() {
   active_runtime().mark_wire_begun();
 }
 
-void TwoWire::setClock(std::uint32_t clock_hz) {
-  clock_hz_ = clock_hz;
-}
+void TwoWire::setClock(std::uint32_t clock_hz) { clock_hz_ = clock_hz; }
 
 void TwoWire::beginTransmission(std::uint8_t address) {
   address_ = address;
@@ -246,7 +220,8 @@ std::uint8_t TwoWire::endTransmission(bool) {
 }
 
 std::uint8_t TwoWire::requestFrom(std::uint8_t address, std::uint8_t quantity) {
-  rx_ = begun_ ? active_runtime().i2c_read(address, quantity) : std::vector<std::uint8_t>{};
+  rx_ = begun_ ? active_runtime().i2c_read(address, quantity)
+               : std::vector<std::uint8_t>{};
   rx_offset_ = 0;
   return static_cast<std::uint8_t>(rx_.size());
 }
@@ -267,9 +242,7 @@ void TwoWire::clear() {
   rx_offset_ = 0;
 }
 
-bool TwoWire::begun() const {
-  return begun_;
-}
+bool TwoWire::begun() const { return begun_; }
 
 Runtime::Runtime(BoardModel model) : model_(std::move(model)) {
   set_active_runtime(this);
@@ -282,21 +255,13 @@ Runtime::~Runtime() {
   }
 }
 
-void Runtime::set_harness(Harness harness) {
-  harness_ = std::move(harness);
-}
+void Runtime::set_harness(Harness harness) { harness_ = std::move(harness); }
 
-void Runtime::set_button_pressed(bool pressed) {
-  button_pressed_ = pressed;
-}
+void Runtime::set_button_pressed(bool pressed) { button_pressed_ = pressed; }
 
-void Runtime::inject_gps(const std::string& nmea) {
-  Serial1.push_rx(nmea);
-}
+void Runtime::inject_gps(const std::string &nmea) { Serial1.push_rx(nmea); }
 
-void Runtime::set_sd_available(bool available) {
-  SD.set_available(available);
-}
+void Runtime::set_sd_available(bool available) { SD.set_available(available); }
 
 void Runtime::clear_peripherals() {
   pins_.clear();
@@ -316,7 +281,9 @@ void Runtime::pin_mode(std::uint8_t pin, std::uint8_t mode) {
 void Runtime::digital_write(std::uint8_t pin, std::uint8_t value) {
   pins_[pin].value = value ? 1 : 0;
   if (pin == model_.arduino_pin("CY_RST_N")) {
-    if (value == 0) {
+    // The board net is named CY_RST_N, but the actual CY8C9560A XRES pin is
+    // active high and has an internal pull-down.
+    if (value != 0) {
       reset_expander_state();
     } else {
       expander_.reset_asserted = false;
@@ -326,17 +293,26 @@ void Runtime::digital_write(std::uint8_t pin, std::uint8_t value) {
 
 int Runtime::digital_read(std::uint8_t pin) const {
   if (pin == model_.arduino_pin("BTN_TEST")) {
-    return button_pressed_ ? 1 : 0;
+    return button_pressed_ ? 0 : 1;
   }
   const auto iter = pins_.find(pin);
   return iter == pins_.end() ? 0 : iter->second.value;
 }
 
-void Runtime::delay(std::uint32_t milliseconds) {
-  elapsed_ms_ += milliseconds;
+std::uint8_t Runtime::pin_mode(std::uint8_t pin) const {
+  const auto iter = pins_.find(pin);
+  return iter == pins_.end() ? kInputMode : iter->second.mode;
 }
 
-bool Runtime::i2c_write(std::uint8_t address, const std::vector<std::uint8_t>& bytes) {
+std::uint8_t Runtime::pin_value(std::uint8_t pin) const {
+  const auto iter = pins_.find(pin);
+  return iter == pins_.end() ? 0 : iter->second.value;
+}
+
+void Runtime::delay(std::uint32_t milliseconds) { elapsed_ms_ += milliseconds; }
+
+bool Runtime::i2c_write(std::uint8_t address,
+                        const std::vector<std::uint8_t> &bytes) {
   if (address != 0x20 || !expander_available() || bytes.empty()) {
     return false;
   }
@@ -348,7 +324,8 @@ bool Runtime::i2c_write(std::uint8_t address, const std::vector<std::uint8_t>& b
   return true;
 }
 
-std::vector<std::uint8_t> Runtime::i2c_read(std::uint8_t address, std::uint8_t quantity) {
+std::vector<std::uint8_t> Runtime::i2c_read(std::uint8_t address,
+                                            std::uint8_t quantity) {
   std::vector<std::uint8_t> result;
   if (address != 0x20 || !expander_available()) {
     return result;
@@ -360,51 +337,65 @@ std::vector<std::uint8_t> Runtime::i2c_read(std::uint8_t address, std::uint8_t q
   return result;
 }
 
-void Runtime::mark_wire_begun() {
-}
+void Runtime::mark_wire_begun() {}
 
-const BoardModel& Runtime::model() const {
-  return model_;
-}
+const BoardModel &Runtime::model() const { return model_; }
 
-const Harness& Runtime::harness() const {
-  return harness_;
-}
+const Harness &Runtime::harness() const { return harness_; }
 
-const std::string& Runtime::serial_output() const {
-  return Serial.output();
-}
+const std::string &Runtime::serial_output() const { return Serial.output(); }
 
-const std::string& Runtime::serial1_output() const {
-  return Serial1.output();
-}
+const std::string &Runtime::serial1_output() const { return Serial1.output(); }
 
-const std::string& Runtime::sd_content(const std::string& path) const {
+const std::string &Runtime::sd_content(const std::string &path) const {
   return SD.content(path);
 }
 
 LedState Runtime::led_state() const {
   LedState state;
-  state.red = digital_read(static_cast<std::uint8_t>(model_.arduino_pin("LED_R"))) == 0;
-  state.green = digital_read(static_cast<std::uint8_t>(model_.arduino_pin("LED_G"))) == 0;
-  state.blue = digital_read(static_cast<std::uint8_t>(model_.arduino_pin("LED_B"))) == 0;
+  const auto red = static_cast<std::uint8_t>(model_.arduino_pin("LED_R"));
+  const auto green = static_cast<std::uint8_t>(model_.arduino_pin("LED_G"));
+  const auto blue = static_cast<std::uint8_t>(model_.arduino_pin("LED_B"));
+  state.red = pin_mode(red) == kOutputMode && pin_value(red) == 0;
+  state.green = pin_mode(green) == kOutputMode && pin_value(green) == 0;
+  state.blue = pin_mode(blue) == kOutputMode && pin_value(blue) == 0;
   return state;
 }
 
-bool Runtime::wire_begun() const {
-  return Wire2.begun();
-}
+bool Runtime::wire_begun() const { return Wire2.begun(); }
 
-bool Runtime::expander_accessed() const {
-  return expander_.accessed;
+bool Runtime::expander_accessed() const { return expander_.accessed; }
+
+std::uint8_t Runtime::expander_direction(std::size_t port) const {
+  if (port >= expander_.directions.size()) {
+    throw std::out_of_range("expander port index");
+  }
+  return expander_.directions[port];
 }
 
 std::uint64_t Runtime::last_expander_inputs() const {
   return expander_.last_inputs;
 }
 
-std::uint32_t Runtime::elapsed_ms() const {
-  return elapsed_ms_;
+std::uint32_t Runtime::elapsed_ms() const { return elapsed_ms_; }
+
+AnalogStimulus Runtime::analog_stimulus() const {
+  const auto leds = led_state();
+  AnalogStimulus stimulus;
+  stimulus.led_red_on = leds.red;
+  stimulus.led_green_on = leds.green;
+  stimulus.led_blue_on = leds.blue;
+  stimulus.i2c_sda_low = false;
+  stimulus.i2c_scl_low = false;
+  if (Serial1.begun()) {
+    stimulus.uart_tx_voltage = 3.3;
+  }
+  return stimulus;
+}
+
+AnalogObservation Runtime::simulate_analog(const NgSpiceSimulator &simulator,
+                                           const AnalogFixture &fixture) const {
+  return simulator.run(fixture, analog_stimulus());
 }
 
 bool Runtime::expander_available() const {
@@ -415,7 +406,7 @@ void Runtime::reset_expander_state() {
   expander_ = {};
   expander_.reset_asserted = true;
   expander_.directions.fill(0x00);
-  for (auto& bank : expander_.drive_modes) {
+  for (auto &bank : expander_.drive_modes) {
     bank.fill(0x00);
   }
   expander_.drive_modes[static_cast<std::size_t>(DriveMode::PullUp)].fill(0xFF);
@@ -459,7 +450,7 @@ void Runtime::write_expander_register(std::uint8_t reg, std::uint8_t value) {
   }
   if (reg >= 0x1D && reg < 0x24) {
     const auto mode = reg - 0x1D;
-    for (auto& bank : expander_.drive_modes) {
+    for (auto &bank : expander_.drive_modes) {
       bank[expander_.selected_port] &= static_cast<std::uint8_t>(~value);
     }
     expander_.drive_modes[mode][expander_.selected_port] |= value;
@@ -490,4 +481,4 @@ HardwareSerial Serial1;
 TwoWire Wire2;
 SDClass SD;
 
-}  // namespace host_sim
+} // namespace host_sim

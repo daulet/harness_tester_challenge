@@ -1,5 +1,10 @@
+#include <array>
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
+#include <iterator>
+#include <sstream>
+#include <stdexcept>
 #include <string>
 
 #include "host_simulator/board.h"
@@ -12,6 +17,31 @@ namespace {
 
 std::string data_path(const std::string& relative) {
   return std::string(HOST_SIM_ROOT) + "/" + relative;
+}
+
+std::string read_file(const std::string& path) {
+  std::ifstream file(path);
+  if (!file) {
+    throw std::runtime_error("failed to open source file: " + path);
+  }
+  std::ostringstream content;
+  content << file.rdbuf();
+  return content.str();
+}
+
+void write_file(const std::string& path, const std::string& content) {
+  std::ofstream file(path);
+  if (!file) {
+    throw std::runtime_error("failed to write source file: " + path);
+  }
+  file << content;
+}
+
+bool require(bool condition, const std::string& message) {
+  if (!condition) {
+    std::cerr << message << "\n";
+  }
+  return condition;
 }
 
 host_sim::ExpanderPinDrive output_high() {
@@ -29,53 +59,121 @@ host_sim::ExpanderPinDrive input_pull_down() {
   return drive;
 }
 
-bool require(bool condition, const std::string& message) {
-  if (!condition) {
-    std::cerr << message << "\n";
-  }
-  return condition;
-}
-
 }  // namespace
 
 int main() {
-  const auto map = data_path("simulator/data/schematic_harness_map.csv");
-  const auto io = data_path("simulator/data/schematic_io_map.csv");
-  const auto overlay = data_path("simulator/data/pcb_fault_overlay.csv");
-  const auto schematic = host_sim::BoardModel::load(map, io);
-  const auto as_drawn = host_sim::BoardModel::load(map, io, overlay);
+  const auto pcb = data_path("kicad_files/hardware_challenge.kicad_pcb");
+  const auto schematic = data_path("kicad_files/hardware_challenge.kicad_sch");
+  const auto model = host_sim::BoardModel::load(pcb, schematic);
+
+  bool ok = true;
+  for (std::size_t index = 0; index < host_sim::kHarnessPins; ++index) {
+    ok &= require(model.channel(index).net == "CBL_" + std::to_string(index),
+                  "J3 source parity failed for harness channel " + std::to_string(index));
+  }
+
+  ok &= require(model.channel(20).expander_port == 3 &&
+                    model.channel(20).expander_bit == 0,
+                "non-J3 routed net CBL_20 did not resolve to U4 GPort3_Bit0");
+  ok &= require(model.arduino_pin("CY_SCL") == 24 &&
+                    model.arduino_pin("CY_SDA") == 25,
+                "firmware-visible I2C nets did not resolve from source");
+  ok &= require(model.pcb_connected("CY_SCL", "U2", "16", "U4", "24") &&
+                    model.pcb_connected("CY_SDA", "U2", "17", "U4", "28"),
+                "non-J3 I2C routes did not resolve through the PCB graph");
+  ok &= require(model.connectivity_mismatches().empty(),
+                "source-matched digital connectivity unexpectedly reported mismatches");
+
+  const auto gnd = model.physical_nets().find("GND");
+  ok &= require(gnd != model.physical_nets().end(),
+                "PCB source did not expose GND physical net");
+  if (gnd != model.physical_nets().end()) {
+    ok &= require(gnd->second.zone_count > 0,
+                  "PCB source did not account for copper zones");
+    ok &= require(gnd->second.via_count > 0,
+                  "PCB source did not account for vias");
+  }
+  ok &= require(model.physical_stats().keepouts > 0,
+                "PCB source did not account for keepouts");
+  ok &= require(model.has_copper_at("GND", "F.Cu", 150.0, 50.0),
+                "PCB source did not expose copper outside the keepout");
+  ok &= require(!model.has_copper_at("GND", "F.Cu", 130.0, 70.0),
+                "PCB source did not suppress copper inside the keepout");
+
+  const auto source = read_file(schematic);
+  const auto marker = source.find("(global_label \"CBL_0\"");
+  ok &= require(marker != std::string::npos,
+                "schematic source did not contain the mismatch test marker");
+  if (marker != std::string::npos) {
+    auto mutated = source;
+    mutated.replace(marker + std::string("(global_label \"").size(), 5, "CBL_99");
+    const auto mutated_path = data_path("build/mutated_hardware_challenge.kicad_sch");
+    write_file(mutated_path, mutated);
+    const auto mutated_model = host_sim::BoardModel::load(pcb, mutated_path);
+    ok &= require(!mutated_model.connectivity_mismatches().empty(),
+                  "schematic-vs-PCB mismatch did not produce evidence");
+    ok &= require(mutated_model.channel(0).net == "CBL_0",
+                  "schematic mismatch incorrectly replaced PCB runtime connectivity");
+  }
+
+  const auto pcb_source = read_file(pcb);
+  const auto j3_marker = pcb_source.find("(property \"Reference\" \"J3\"");
+  ok &= require(j3_marker != std::string::npos,
+                "PCB source did not contain the J3 mismatch test marker");
+  if (j3_marker != std::string::npos) {
+    const auto net_marker = pcb_source.find("(net 26 \"CBL_0\")", j3_marker);
+    ok &= require(net_marker != std::string::npos,
+                  "PCB source did not contain the J3 CBL_0 net marker");
+    if (net_marker != std::string::npos) {
+      auto mutated = pcb_source;
+      mutated.replace(net_marker,
+                      std::string("(net 26 \"CBL_0\")").size(),
+                      "(net 0 \"\")");
+      const auto mutated_path = data_path("build/mutated_hardware_challenge.kicad_pcb");
+      write_file(mutated_path, mutated);
+      const auto mutated_model = host_sim::BoardModel::load(mutated_path, schematic);
+      ok &= require(!mutated_model.connectivity_mismatches().empty(),
+                    "PCB mismatch did not produce evidence");
+      ok &= require(mutated_model.channel(0).net.empty(),
+                    "PCB mismatch incorrectly retained the schematic net as runtime connectivity");
+      ok &= require(!mutated_model.pcb_connected("CBL_0", "J3", "1", "U4", "24"),
+                    "PCB mismatch incorrectly retained the disconnected route");
+    }
+  }
+
+  const auto u2_marker = pcb_source.find("(property \"Reference\" \"U2\"");
+  ok &= require(u2_marker != std::string::npos,
+                "PCB source did not contain the U2 route mismatch test marker");
+  if (u2_marker != std::string::npos) {
+    const auto pad_marker = pcb_source.find("(pad \"16\"", u2_marker);
+    ok &= require(pad_marker != std::string::npos,
+                  "PCB source did not contain the U2 CY_SCL pad marker");
+    const auto net_marker = pad_marker == std::string::npos
+        ? std::string::npos
+        : pcb_source.find("(net 55)", pad_marker);
+    ok &= require(net_marker != std::string::npos,
+                  "PCB source did not contain the U2 CY_SCL route net marker");
+    if (net_marker != std::string::npos) {
+      auto mutated = pcb_source;
+      mutated.replace(net_marker, std::string("(net 55)").size(), "(net 0)");
+      const auto mutated_path = data_path("build/mutated_hardware_challenge_u2_route.kicad_pcb");
+      write_file(mutated_path, mutated);
+      const auto mutated_model = host_sim::BoardModel::load(mutated_path, schematic);
+      ok &= require(!mutated_model.connectivity_mismatches().empty(),
+                    "route mismatch did not produce evidence");
+      ok &= require(!mutated_model.pcb_connected("CY_SCL", "U2", "16", "U4", "24"),
+                    "route mismatch incorrectly retained physical connectivity");
+    }
+  }
 
   host_sim::Harness harness;
   harness.connect(3, 4);
-
   std::array<host_sim::ExpanderPinDrive, host_sim::kExpanderPins> drives;
   drives.fill(input_pull_down());
-  drives[1] = output_high();
-  const auto schematic_short_check = schematic.resolve_inputs(harness, drives);
-  const auto as_drawn_short_check = as_drawn.resolve_inputs(harness, drives);
-
-  bool ok = true;
-  ok &= require((schematic_short_check & (1ULL << 2)) == 0,
-                "schematic map unexpectedly shorts CBL_1 to CBL_2");
-  ok &= require((as_drawn_short_check & (1ULL << 2)) != 0,
-                "PCB overlay did not short CBL_1 to CBL_2");
-
-  drives.fill(input_pull_down());
   drives[3] = output_high();
-  const auto schematic_open_check = schematic.resolve_inputs(harness, drives);
-  const auto as_drawn_open_check = as_drawn.resolve_inputs(harness, drives);
-  ok &= require((schematic_open_check & (1ULL << 4)) != 0,
-                "schematic map did not carry CBL_3 through J3");
-  ok &= require((as_drawn_open_check & (1ULL << 4)) == 0,
-                "PCB overlay did not leave J3 CBL_3 open");
-
-  drives.fill(input_pull_down());
-  drives[24] = output_high();
-  const auto schematic_map_check = schematic.resolve_inputs(harness, drives);
-  ok &= require((schematic_map_check & (1ULL << 24)) != 0,
-                "schematic map did not report CBL_20 on physical bit 24");
-  ok &= require((schematic_map_check & (1ULL << 20)) == 0,
-                "schematic map incorrectly normalized CBL_20 onto logical bit 20");
+  const auto resolved = model.resolve_inputs(harness, drives);
+  ok &= require((resolved & (1ULL << 4)) != 0,
+                "physical runtime graph did not preserve CBL_3 connectivity");
 
   return ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }

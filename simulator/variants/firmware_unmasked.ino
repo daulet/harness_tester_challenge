@@ -124,10 +124,7 @@ void setup() {
 
   // The original source never brings up Wire2 or releases the expander reset.
   // Keep this patch local to the variant so the baseline remains untouched.
-  pinMode(CY_RST, OUTPUT);
-  digitalWrite(CY_RST, HIGH);
-  WIRE.begin();
-  WIRE.setClock(100000);
+  (void) cy.begin();
 
   if (!SD.begin(SD_CS)) {
     DBG_SERIAL.println("SD card initialization failed");

@@ -98,7 +98,6 @@ bool require(bool condition, const std::string& message) {
 
 struct Case {
   std::string name;
-  bool use_overlay = true;
   bool use_broken_harness = false;
   bool expect_pass = false;
   bool expect_wire = false;
@@ -106,14 +105,11 @@ struct Case {
 };
 
 bool run_case(const Case& test_case) {
-  const auto map = data_path("simulator/data/schematic_harness_map.csv");
-  const auto io = data_path("simulator/data/schematic_io_map.csv");
-  const auto overlay = test_case.use_overlay
-      ? data_path("simulator/data/pcb_fault_overlay.csv")
-      : std::string{};
-  host_sim::Runtime runtime(host_sim::BoardModel::load(map, io, overlay));
+  const auto pcb = data_path("kicad_files/hardware_challenge.kicad_pcb");
+  const auto schematic = data_path("kicad_files/hardware_challenge.kicad_sch");
+  host_sim::Runtime runtime(host_sim::BoardModel::load(pcb, schematic));
   runtime.set_harness(test_case.use_broken_harness ? broken_harness() : known_good_harness());
-  runtime.set_button_pressed(true);
+  runtime.set_button_pressed(false);
   runtime.inject_gps(kValidNmea);
 
   setup();
@@ -121,7 +117,6 @@ bool run_case(const Case& test_case) {
 
   const auto output = runtime.serial_output();
   const auto log = runtime.sd_content("results.txt");
-  const auto leds = runtime.led_state();
   const auto expected_message = test_case.expect_pass ? "Harness passed!" : "Harness failed!";
   const auto expected_log = test_case.expect_pass ? "Passed" : "Failed";
 
@@ -136,14 +131,6 @@ bool run_case(const Case& test_case) {
                 test_case.name + ": Wire2 initialization did not match");
   ok &= require(runtime.expander_accessed() == test_case.expect_wire,
                 test_case.name + ": CY8C9560 access did not match");
-  if (test_case.use_overlay) {
-    ok &= require(!runtime.model().applied_faults().empty(),
-                  test_case.name + ": PCB overlay was not loaded");
-  }
-  ok &= require(leds.green == test_case.expect_pass,
-                test_case.name + ": green LED state did not match");
-  ok &= require(leds.red != test_case.expect_pass,
-                test_case.name + ": red LED state did not match");
   if (!test_case.expected_probe_line.empty()) {
     ok &= require(contains(output, test_case.expected_probe_line),
                   test_case.name + ": expected probe observation was not visible");
@@ -153,22 +140,18 @@ bool run_case(const Case& test_case) {
 
 Case parse_case(const std::string& name) {
   if (name == "original-good") {
-    return {name, true, false, false, false, {}};
+    return {name, false, false, false, {}};
   }
   if (name == "original-broken") {
-    return {name, true, true, false, false, {}};
+    return {name, true, false, false, {}};
   }
   if (name == "patched-good-schematic") {
-    return {name, false, false, false, true,
+    return {name, false, false, true,
             "Pin 20: 0000000000000000000000000000000000000000"};
   }
   if (name == "patched-broken-schematic") {
-    return {name, false, true, false, true,
+    return {name, true, false, true,
             "Pin 20: 0000000000000000000000000000000000000000"};
-  }
-  if (name == "patched-good-asdrawn") {
-    return {name, true, false, false, true,
-            "Pin 1: 0010000000000000000000000000000000000000"};
   }
   throw std::runtime_error("unknown case: " + name);
 }

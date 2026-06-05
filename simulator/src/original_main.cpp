@@ -22,10 +22,9 @@ std::string data_path(const std::string& relative) {
 
 int main() {
   host_sim::Runtime runtime(host_sim::BoardModel::load(
-      data_path("simulator/data/schematic_harness_map.csv"),
-      data_path("simulator/data/schematic_io_map.csv"),
-      data_path("simulator/data/pcb_fault_overlay.csv")));
-  runtime.set_button_pressed(true);
+      data_path("kicad_files/hardware_challenge.kicad_pcb"),
+      data_path("kicad_files/hardware_challenge.kicad_sch")));
+  runtime.set_button_pressed(false);
   runtime.inject_gps(kValidNmea);
 
   setup();

@@ -7,21 +7,22 @@
 #include <unordered_map>
 #include <vector>
 
+#include "host_simulator/analog.h"
 #include "host_simulator/board.h"
 
 namespace host_sim {
 
 class Runtime;
 
-Runtime& active_runtime();
-void set_active_runtime(Runtime* runtime);
+Runtime &active_runtime();
+void set_active_runtime(Runtime *runtime);
 
 class PrintSink {
 public:
   virtual ~PrintSink() = default;
 
-  std::size_t print(const char* value);
-  std::size_t print(const std::string& value);
+  std::size_t print(const char *value);
+  std::size_t print(const std::string &value);
   std::size_t print(char value);
   std::size_t print(int value);
   std::size_t print(unsigned int value);
@@ -32,15 +33,15 @@ public:
   std::size_t print(bool value);
 
   std::size_t println();
-  std::size_t println(const char* value);
-  std::size_t println(const std::string& value);
+  std::size_t println(const char *value);
+  std::size_t println(const std::string &value);
   std::size_t println(char value);
   std::size_t println(int value);
   std::size_t println(bool value);
-  int printf(const char* format, ...);
+  int printf(const char *format, ...);
 
 protected:
-  virtual std::size_t write_bytes(const std::string& bytes) = 0;
+  virtual std::size_t write_bytes(const std::string &bytes) = 0;
 };
 
 class HardwareSerial : public PrintSink {
@@ -48,13 +49,13 @@ public:
   void begin(unsigned long baud);
   int available() const;
   int read();
-  void push_rx(const std::string& bytes);
+  void push_rx(const std::string &bytes);
   void clear();
-  const std::string& output() const;
+  const std::string &output() const;
   bool begun() const;
 
 protected:
-  std::size_t write_bytes(const std::string& bytes) override;
+  std::size_t write_bytes(const std::string &bytes) override;
 
 private:
   unsigned long baud_ = 0;
@@ -72,7 +73,7 @@ public:
   void close();
 
 protected:
-  std::size_t write_bytes(const std::string& bytes) override;
+  std::size_t write_bytes(const std::string &bytes) override;
 
 private:
   std::shared_ptr<std::string> content_;
@@ -82,10 +83,10 @@ private:
 class SDClass {
 public:
   bool begin(std::uint8_t cs);
-  File open(const char* path, std::uint8_t mode);
+  File open(const char *path, std::uint8_t mode);
   void set_available(bool available);
   void clear();
-  const std::string& content(const std::string& path) const;
+  const std::string &content(const std::string &path) const;
 
 private:
   bool available_ = true;
@@ -125,34 +126,41 @@ public:
   explicit Runtime(BoardModel model);
   ~Runtime();
 
-  Runtime(const Runtime&) = delete;
-  Runtime& operator=(const Runtime&) = delete;
+  Runtime(const Runtime &) = delete;
+  Runtime &operator=(const Runtime &) = delete;
 
   void set_harness(Harness harness);
   void set_button_pressed(bool pressed);
-  void inject_gps(const std::string& nmea);
+  void inject_gps(const std::string &nmea);
   void set_sd_available(bool available);
   void clear_peripherals();
 
   void pin_mode(std::uint8_t pin, std::uint8_t mode);
   void digital_write(std::uint8_t pin, std::uint8_t value);
   int digital_read(std::uint8_t pin) const;
+  std::uint8_t pin_mode(std::uint8_t pin) const;
+  std::uint8_t pin_value(std::uint8_t pin) const;
   void delay(std::uint32_t milliseconds);
 
-  bool i2c_write(std::uint8_t address, const std::vector<std::uint8_t>& bytes);
-  std::vector<std::uint8_t> i2c_read(std::uint8_t address, std::uint8_t quantity);
+  bool i2c_write(std::uint8_t address, const std::vector<std::uint8_t> &bytes);
+  std::vector<std::uint8_t> i2c_read(std::uint8_t address,
+                                     std::uint8_t quantity);
   void mark_wire_begun();
 
-  const BoardModel& model() const;
-  const Harness& harness() const;
-  const std::string& serial_output() const;
-  const std::string& serial1_output() const;
-  const std::string& sd_content(const std::string& path) const;
+  const BoardModel &model() const;
+  const Harness &harness() const;
+  const std::string &serial_output() const;
+  const std::string &serial1_output() const;
+  const std::string &sd_content(const std::string &path) const;
   LedState led_state() const;
   bool wire_begun() const;
   bool expander_accessed() const;
+  std::uint8_t expander_direction(std::size_t port) const;
   std::uint64_t last_expander_inputs() const;
   std::uint32_t elapsed_ms() const;
+  AnalogStimulus analog_stimulus() const;
+  AnalogObservation simulate_analog(const NgSpiceSimulator &simulator,
+                                    const AnalogFixture &fixture) const;
 
 private:
   struct PinState {
@@ -190,4 +198,4 @@ extern HardwareSerial Serial1;
 extern TwoWire Wire2;
 extern SDClass SD;
 
-}  // namespace host_sim
+} // namespace host_sim

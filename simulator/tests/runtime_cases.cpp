@@ -25,15 +25,15 @@ bool require(bool condition, const std::string& message) {
 
 int main() {
   host_sim::Runtime runtime(host_sim::BoardModel::load(
-      data_path("simulator/data/schematic_harness_map.csv"),
-      data_path("simulator/data/schematic_io_map.csv")));
+      data_path("kicad_files/hardware_challenge.kicad_pcb"),
+      data_path("kicad_files/hardware_challenge.kicad_sch")));
   host_sim::Wire2.begin();
 
   bool ok = true;
   ok &= require(runtime.i2c_read(0x20, 1).empty(),
                 "expander responded while reset was asserted");
 
-  runtime.digital_write(22, 1);
+  runtime.digital_write(22, 0);
   ok &= require(runtime.i2c_write(0x20, {0x1D}),
                 "expander did not accept pull-up register select");
   const auto pull_up = runtime.i2c_read(0x20, 1);
@@ -53,8 +53,8 @@ int main() {
   ok &= require(pull_down.size() == 1 && pull_down[0] == 0x01,
                 "expander did not set the new mode on mode transition");
 
-  runtime.digital_write(22, 0);
   runtime.digital_write(22, 1);
+  runtime.digital_write(22, 0);
   ok &= require(runtime.i2c_write(0x20, {0x1C}),
                 "expander did not accept direction register select after reset");
   const auto direction = runtime.i2c_read(0x20, 1);

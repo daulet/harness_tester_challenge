@@ -1,8 +1,0 @@
-# PCB-only J3 copper overlay. The schematic says each J3 contact reaches its
-# matching CBL net. The routed PCB only reaches pad 1 with CBL_0 and pad 2 with
-# both CBL_1 and CBL_2. Pads 3 through 40 are left with no routed attachment.
-# operation,net,external_pin,reason
-clear_attachments,,,J3 placement/routing overlay replaces schematic attachments
-attach,CBL_0,0,J3 pad 1 reaches CBL_0
-attach,CBL_1,1,J3 pad 2 reaches CBL_1
-attach,CBL_2,1,J3 pad 2 also reaches CBL_2

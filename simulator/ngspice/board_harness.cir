@@ -1,0 +1,95 @@
+* First-pass board and representative harness channel.
+* Fixture-specific .param values and device models are defined by the driver.
+
+VINPUT input_source 0 PWL(0 {VIN_BASE} {SURGE_START} {VIN_BASE} {SURGE_START+1n} {VIN_BASE+SURGE_DELTA} {SURGE_END} {VIN_BASE+SURGE_DELTA} {SURGE_END+1n} {VIN_BASE})
+RINPUT input_source raw_input {INPUT_SOURCE_R}
+DTVS 0 raw_input TVS_SMAJ16A
+DREVERSE raw_input reverse_diode REVERSE_DIODE
+RREVERSE reverse_diode protected_12v {REVERSE_PATH_R}
+CINPUT protected_12v 0 10u
+RINPUT_LOAD protected_12v 0 1k
+
+BREG5 rail5_ideal 0 V=max(0,min(5,V(protected_12v)-2))
+RREG5 rail5_ideal rail5 0.15
+C5 rail5 0 10u
+R5LOAD rail5 0 {RAIL5_LOAD_R}
+
+BREG33 rail33_ideal 0 V=max(0,min(3.3,V(rail5)-0.3))
+RREG33 rail33_ideal rail33 0.12
+C33 rail33 0 10u
+R33LOAD rail33 0 {RAIL33_LOAD_R}
+
+VHARNESS harness_source 0 {HARNESS_DRIVE_V}
+VHARNESS_SENSE harness_source harness_sense 0
+RHWIRE harness_sense harness_r {HARNESS_R}
+LHWIRE harness_r harness_l {HARNESS_L}
+RHCONTACT harness_l harness_contact {CONTACT_R}
+VINTERMITTENT intermittent_control 0 PWL(0 1 {INTERMITTENT_START} 1 {INTERMITTENT_START+1n} {1-INTERMITTENT_ENABLED} {INTERMITTENT_END} {1-INTERMITTENT_ENABLED} {INTERMITTENT_END+1n} 1)
+SINTERMITTENT harness_contact harness_sw intermittent_control 0 HARNESS_CONTACT
+RINTERMITTENT_SNUBBER harness_contact harness_sw 1meg
+RHOPEN harness_sw harness_out {OPEN_R}
+CHARN harness_out 0 {HARNESS_C}
+RHLEAK harness_out 0 {HARNESS_LEAK_R}
+RHLOAD harness_out 0 10k
+RHSHORT_GND harness_out 0 {SHORT_GND_R}
+RHSHORT_RAIL harness_out rail33 {SHORT_RAIL_R}
+
+RSDA_PULLUP i2c_sda rail33 {SDA_PULLUP_R}
+RSDA_PULLDOWN i2c_sda 0 {SDA_PULLDOWN_R}
+RSCL_PULLUP i2c_scl rail33 {SCL_PULLUP_R}
+RSCL_PULLDOWN i2c_scl 0 {SCL_PULLDOWN_R}
+VSDA_CONTROL sda_control 0 PWL(0 {SDA_FORCE_LOW} 1m {SDA_FORCE_LOW} 1.001m 1 2m 1 2.001m {SDA_FORCE_LOW})
+VSCL_CONTROL scl_control 0 PWL(0 {SCL_FORCE_LOW} 1m {SCL_FORCE_LOW} 1.001m 1 2m 1 2.001m {SCL_FORCE_LOW})
+SSDA i2c_sda 0 sda_control 0 OPEN_DRAIN
+SSCL i2c_scl 0 scl_control 0 OPEN_DRAIN
+CI2C_SDA i2c_sda 0 100p
+CI2C_SCL i2c_scl 0 100p
+
+VLED_RED_CONTROL led_red_control 0 {LED_RED_ON}
+RLED_RED rail33 led_red_anode {LED_RED_R}
+DLED_RED led_red_anode led_red_cathode LED_RED
+VLED_RED_SENSE led_red_cathode led_red_switch 0
+SLED_RED led_red_switch 0 led_red_control 0 OPEN_DRAIN
+
+VLED_GREEN_CONTROL led_green_control 0 {LED_GREEN_ON}
+RLED_GREEN rail33 led_green_anode {LED_GREEN_R}
+DLED_GREEN led_green_anode led_green_cathode LED_GREEN
+VLED_GREEN_SENSE led_green_cathode led_green_switch 0
+SLED_GREEN led_green_switch 0 led_green_control 0 OPEN_DRAIN
+
+VLED_BLUE_CONTROL led_blue_control 0 {LED_BLUE_ON}
+RLED_BLUE rail33 led_blue_anode {LED_BLUE_R}
+DLED_BLUE led_blue_anode led_blue_cathode LED_BLUE
+VLED_BLUE_SENSE led_blue_cathode led_blue_switch 0
+SLED_BLUE led_blue_switch 0 led_blue_control 0 OPEN_DRAIN
+
+VUART_TX uart_tx_source 0 {UART_TX_V}
+RUART_TX uart_tx_source uart_line 40
+VUART_PEER uart_peer_source 0 {UART_PEER_V}
+RUART_PEER uart_peer_source uart_line {UART_PEER_R}
+CUART uart_line 0 50p
+RUART_LOAD uart_line 0 100k
+
+.options method=gear reltol=1e-6 abstol=1e-12 vntol=1e-8
+.tran 2u 5m 0 2u
+
+.meas tran input_nominal_v FIND v(raw_input) AT=0.5m
+.meas tran input_source_peak_v MAX v(input_source) FROM=1m TO=1.5m
+.meas tran input_clamped_peak_v MAX v(raw_input) FROM=1m TO=1.5m
+.meas tran protected_nominal_v FIND v(protected_12v) AT=0.5m
+.meas tran rail5_nominal_v FIND v(rail5) AT=0.5m
+.meas tran rail33_nominal_v FIND v(rail33) AT=0.5m
+.meas tran harness_before_v FIND v(harness_out) AT=1m
+.meas tran harness_during_v FIND v(harness_out) AT=2.5m
+.meas tran harness_after_v FIND v(harness_out) AT=4m
+.meas tran harness_source_current_a AVG i(VHARNESS_SENSE) FROM=0.4m TO=0.8m
+.meas tran i2c_sda_high_v FIND v(i2c_sda) AT=0.5m
+.meas tran i2c_sda_low_v FIND v(i2c_sda) AT=1.5m
+.meas tran i2c_scl_high_v FIND v(i2c_scl) AT=0.5m
+.meas tran i2c_scl_low_v FIND v(i2c_scl) AT=1.5m
+.meas tran led_red_current_a AVG i(VLED_RED_SENSE) FROM=0.4m TO=0.8m
+.meas tran led_green_current_a AVG i(VLED_GREEN_SENSE) FROM=0.4m TO=0.8m
+.meas tran led_blue_current_a AVG i(VLED_BLUE_SENSE) FROM=0.4m TO=0.8m
+.meas tran uart_level_v FIND v(uart_line) AT=0.5m
+
+.end
