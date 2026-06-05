@@ -6,12 +6,26 @@
 
 namespace host_sim {
 
+class BoardModel;
+
 struct AnalogFixture {
   std::string name;
   std::map<std::string, double> parameters;
 
   static AnalogFixture load(const std::string &path);
   double parameter(const std::string &name) const;
+};
+
+struct BoardElectricalConfig {
+  // Board-derived pulls override fixture defaults; other analog parameters
+  // remain under the fixture author's control.
+  double i2c_sda_pullup_ohm = 1e12;
+  double i2c_sda_pulldown_ohm = 1e12;
+  double i2c_scl_pullup_ohm = 1e12;
+  double i2c_scl_pulldown_ohm = 1e12;
+
+  static BoardElectricalConfig from_board(const BoardModel &model);
+  void apply_to(AnalogFixture &fixture) const;
 };
 
 struct AnalogStimulus {

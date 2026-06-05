@@ -56,10 +56,10 @@
 
 ## Q3 - KiCad-derived closed-loop electrical simulation
 
-- [ ] **Next:** generate board electrical configuration from parsed KiCad component,
+- [x] **Done:** generate I2C pull-network configuration from parsed KiCad component,
   value, pin, and net data instead of duplicating topology in fixtures.
   - Prerequisite: Q1 structural BoardModel accessors.
-- [ ] Export actual MCU and expander pin modes/drives to the electrical solver and
+- [ ] **Next:** export actual MCU and expander pin modes/drives to the electrical solver and
   feed solved logic levels back into `digitalRead()` and expander inputs.
   - Prerequisite: generated board electrical configuration and Q2 event queue.
 - [ ] Replace the representative harness channel with all 40 mapped channels,

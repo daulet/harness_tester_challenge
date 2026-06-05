@@ -24,8 +24,10 @@ harness has series resistance and inductance, contact resistance, shunt
 capacitance, receiver loading, insulation leakage, optional shorts, an open
 resistance, and a timed contact switch.
 
-I2C uses 4.7 kohm nominal pulls and finite-resistance open-drain switches. UART
-uses finite source impedances so conflicting or overvoltage peers produce a
+I2C uses finite-resistance pulls and open-drain switches. For source-derived
+tests, `BoardElectricalConfig` replaces the four fixture pull parameters using
+parsed two-terminal resistor values and PCB pad nets. UART uses finite source
+impedances so conflicting or overvoltage peers produce a
 measurable line voltage. Each LED channel uses a diode model, configurable
 series resistance, a current-sense source, and a firmware-controlled sink.
 
@@ -55,9 +57,10 @@ thermal, regulator-stability, component-tolerance, or absolute-maximum safety.
 
 ## Reproduction
 
-Each fixture is a strict `key=value` file. It specifies every electrical
-parameter; unknown, duplicate, or missing keys fail before ngspice runs. The
-driver adds optional `AnalogStimulus` overrides, includes the checked-in model
+Each fixture is a strict `key=value` file. It specifies every baseline electrical
+parameter; unknown, duplicate, or missing keys fail before ngspice runs.
+Source-derived board configuration and optional `AnalogStimulus` values may
+replace their owned parameters before the driver includes the checked-in model
 and circuit files by absolute path, then runs a fixed 5ms Gear transient with
 fixed tolerances and named measurements.
 

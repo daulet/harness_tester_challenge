@@ -120,6 +120,8 @@ optical brightness, manufacturing yield, or production readiness.
   the bad SDA topology. `i2c_timing_and_faults` then starts an unchanged
   `Wire2` transaction in physical mode and observes a stuck-low bus before
   START, with no expander register access or simulated-time advance.
+  `analog_source_derived_i2c` independently derives R2/R3 values and pad nets,
+  solves SDA low/SCL high, and flips SDA high when only R3's PCB rail is mutated.
 - **Claude critique:** ACCEPT.
 - **Boundary:** the runtime derives the digital stuck-low state from parsed R3
   pads. It does not yet solve exact voltage/rise time, controller timeout or
@@ -252,5 +254,5 @@ diagnostic still fires when removal precedes the open.
 ctest --test-dir build -R '^(bug_|scenario_)' --output-on-failure
 24/24 candidate witnesses passed
 
-Full suite verified: 55/55 passed
+Full suite verified: 56/56 passed
 ```

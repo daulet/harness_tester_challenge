@@ -286,6 +286,7 @@ set(ANALOG_CASES
   led_no_current
   uart_level_mismatch
   i2c_pull_failure
+  source_derived_i2c
   runtime_control
 )
 foreach(analog_case IN LISTS ANALOG_CASES)

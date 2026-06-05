@@ -97,6 +97,8 @@ public:
   const HarnessChannel& channel(std::size_t harness_index) const;
   const BoardPad& pad(const std::string& reference, const std::string& pad) const;
   const BoardComponent& component(const std::string& reference) const;
+  std::vector<BoardPad> pads_for_component(const std::string& reference) const;
+  const std::map<std::string, BoardComponent>& components() const;
   std::size_t arduino_pin(const std::string& name) const;
   const std::map<std::string, std::size_t>& io_pins() const;
   const std::map<std::string, PhysicalNet>& physical_nets() const;

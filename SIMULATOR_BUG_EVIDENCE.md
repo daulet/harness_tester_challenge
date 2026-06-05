@@ -16,7 +16,7 @@ of the bug thesis.
 
 - 14 bugs passed dedicated simulator evidence tests.
 - 14/14 were accepted by fresh non-interactive Claude review.
-- With ngspice installed, the full simulator suite currently passes 55/55
+- With ngspice installed, the full simulator suite currently passes 56/56
   tests, including the separate second-pass scenario checks in
   `SIMULATOR_SCENARIO_REVIEW.md` and the electrical fixture matrix.
 - The `^bug_` filter contains 16 behavioral tests for these 14 bugs because A03
@@ -69,4 +69,4 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-Current result with ngspice installed: 55/55 tests passed.
+Current result with ngspice installed: 56/56 tests passed.

@@ -124,6 +124,12 @@ The checked-in analog layer lives under `simulator/ngspice/` and models:
 - one representative harness channel with series R/L, shunt C, leakage, contact
   resistance, open/short behavior, and a deterministic intermittent interval.
 
+`BoardElectricalConfig` now scans parsed two-terminal resistor components and
+PCB pad nets to replace the fixture's SDA/SCL pull parameters. On the checked-in
+board this derives R2 as a 4.7 kOhm `CY_SCL` pull-up and R3 as a 4.7 kOhm
+`CY_SDA` pull-down. The remaining rail, protection, LED, UART, and harness
+parameters are still authored fixture inputs.
+
 Run only the electrical fixtures with:
 
 ```sh
@@ -133,8 +139,9 @@ ctest --test-dir build -R '^analog_' --output-on-failure
 Named fixtures cover nominal operation, reverse polarity, transient clamping,
 open circuit, unexpected short, leakage, elevated contact resistance,
 intermittent connection, bad pull network, LED overcurrent/no-current, UART
-level mismatch, and I2C pull failure. See `simulator/ngspice/README.md` for the
-interface, fixture schema, model provenance, thresholds, and explicit limits.
+level mismatch, I2C pull failure, and source-derived board pulls. See
+`simulator/ngspice/README.md` for the interface, fixture schema, model
+provenance, thresholds, and explicit limits.
 
 This first pass is not RF, antenna, GPS acquisition, EMI, full MCU silicon,
 connector wear/vibration, or production physical validation. The regulator,

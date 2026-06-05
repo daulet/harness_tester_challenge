@@ -1,12 +1,12 @@
 # Current status
 
 - Branch: `simulator`.
-- Last committed pass: `095bab8 feat: model SD write failures`.
-- Current working-tree baseline: 55/55 CTest cases passed; analog matrix 14/14 against
+- Last committed pass: `e0a9fd3 feat: model Serial1 receive overruns`.
+- Current working-tree baseline: 56/56 CTest cases passed; analog matrix 15/15 against
   `/opt/homebrew/bin/ngspice`.
 - Sanitizer boundary: ASan A03 and UBSan A05 expected-failure witnesses pass with
   diagnostic matching on Apple Clang 21.
-- Active item: close Q2 finite Teensy UART RX capacity and overrun behavior.
+- Active item: Q3 source-derived board electrical configuration.
 - Known local-only artifact: untracked `build/`.
 - Available boundaries: Apple Clang 21, CMake 4.2.3, clang-format, ngspice.
 - Missing boundary at bootstrap: `kicad-cli` is not installed or on `PATH`.

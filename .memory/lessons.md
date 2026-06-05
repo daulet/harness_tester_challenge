@@ -151,3 +151,15 @@
   unterminated parser fragment, while `firmware_uart_polling_control` does not.
 - Permanent rule: every timed producer/consumer boundary needs capacity, loss
   policy, and accounting before throughput conclusions are credible.
+
+## 2026-06-05 - Authored fixtures must yield to parsed board facts
+
+- Symptom: the nominal analog fixture gave both I2C lines ideal pull-ups even
+  though the PCB places R3 from `CY_SDA` to GND.
+- Root cause: fixture parameters duplicated resistor values and topology instead
+  of consuming the existing KiCad component and pad records.
+- Source evidence: `analog_source_derived_i2c` derives R2/R3 from PCB values and
+  nets, reproduces SDA low/SCL high, and flips both config and voltage when R3's
+  value or rail net is mutated.
+- Permanent rule: authored electrical defaults may fill unmodeled gaps, but a
+  parsed board fact overrides the corresponding fixture parameter.

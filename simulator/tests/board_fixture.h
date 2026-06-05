@@ -29,7 +29,7 @@ inline void replace_after(std::string &source, std::size_t offset,
                           const std::string &from, const std::string &to) {
   const auto marker = source.find(from, offset);
   if (marker == std::string::npos) {
-    throw std::runtime_error("UART mutation marker not found: " + from);
+    throw std::runtime_error("mutation marker not found: " + from);
   }
   source.replace(marker, from.size(), to);
 }

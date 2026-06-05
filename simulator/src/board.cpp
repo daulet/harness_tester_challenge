@@ -1485,6 +1485,21 @@ const BoardComponent& BoardModel::component(const std::string& reference) const 
   return iter->second;
 }
 
+std::vector<BoardPad>
+BoardModel::pads_for_component(const std::string& reference) const {
+  std::vector<BoardPad> result;
+  for (const auto& [key, pad] : pads_) {
+    if (key.first == reference) {
+      result.push_back(pad);
+    }
+  }
+  return result;
+}
+
+const std::map<std::string, BoardComponent>& BoardModel::components() const {
+  return components_;
+}
+
 std::size_t BoardModel::arduino_pin(const std::string& name) const {
   const auto iter = io_pins_.find(name);
   if (iter == io_pins_.end()) {

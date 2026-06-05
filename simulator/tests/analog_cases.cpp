@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <string>
 
+#include "board_fixture.h"
 #include "host_simulator/analog.h"
 #include "host_simulator/board.h"
 #include "host_simulator/runtime.h"
@@ -32,6 +33,18 @@ bool require(bool condition, const std::string &message) {
 host_sim::AnalogFixture fixture(const std::string &name) {
   return host_sim::AnalogFixture::load(
       root_path("simulator/ngspice/fixtures/" + name + ".fixture"));
+}
+
+host_sim::BoardModel board_model(const std::string &pcb_path) {
+  return host_sim::BoardModel::load(
+      pcb_path, root_path("kicad_files/hardware_challenge.kicad_sch"));
+}
+
+host_sim::AnalogFixture source_derived_i2c_fixture(
+    const host_sim::BoardModel &model) {
+  auto configured = fixture("nominal");
+  host_sim::BoardElectricalConfig::from_board(model).apply_to(configured);
+  return configured;
 }
 
 host_sim::NgSpiceSimulator simulator() {
@@ -177,6 +190,66 @@ bool run_i2c_pull_failure() {
       "I2C pull failure: released lines did not remain low");
 }
 
+bool run_source_derived_i2c() {
+  const auto pcb = root_path("kicad_files/hardware_challenge.kicad_pcb");
+  const auto actual_model = board_model(pcb);
+  const auto actual_config =
+      host_sim::BoardElectricalConfig::from_board(actual_model);
+  const auto actual =
+      simulator().run(source_derived_i2c_fixture(actual_model));
+
+  auto mutated_source = test_support::read_file(pcb);
+  const auto r3 = mutated_source.find("(property \"Reference\" \"R3\"");
+  if (r3 == std::string::npos) {
+    throw std::runtime_error("source-derived I2C mutation did not find R3");
+  }
+  const auto r3_pad1 = mutated_source.find("(pad \"1\"", r3);
+  if (r3_pad1 == std::string::npos) {
+    throw std::runtime_error("source-derived I2C mutation did not find R3 pad 1");
+  }
+  test_support::replace_after(mutated_source, r3_pad1, "(net 2 \"GND\")",
+                              "(net 5 \"+3.3V\")");
+  const auto mutated_pcb =
+      root_path("build/mutated_source_derived_i2c.kicad_pcb");
+  test_support::write_file(mutated_pcb, mutated_source);
+  const auto corrected_model = board_model(mutated_pcb);
+  const auto corrected_config =
+      host_sim::BoardElectricalConfig::from_board(corrected_model);
+  const auto corrected =
+      simulator().run(source_derived_i2c_fixture(corrected_model));
+
+  auto value_source = test_support::read_file(pcb);
+  const auto value_r3 = value_source.find("(property \"Reference\" \"R3\"");
+  if (value_r3 == std::string::npos) {
+    throw std::runtime_error("source-derived I2C value mutation did not find R3");
+  }
+  test_support::replace_after(value_source, value_r3,
+                              "(property \"Value\" \"4k7\"",
+                              "(property \"Value\" \"47k\"");
+  const auto value_pcb =
+      root_path("build/mutated_source_derived_i2c_value.kicad_pcb");
+  test_support::write_file(value_pcb, value_source);
+  const auto value_config = host_sim::BoardElectricalConfig::from_board(
+      board_model(value_pcb));
+
+  return require(std::abs(actual_config.i2c_sda_pulldown_ohm - 4700.0) < 1.0 &&
+                     actual_config.i2c_sda_pullup_ohm > 1e11 &&
+                     std::abs(actual_config.i2c_scl_pullup_ohm - 4700.0) < 1.0,
+                 "source-derived I2C config did not match R2/R3 values and nets") &&
+      require(actual.level("i2c_sda_high_v") ==
+                      host_sim::ElectricalLevel::Low &&
+                  actual.level("i2c_scl_high_v") ==
+                      host_sim::ElectricalLevel::High,
+              "source-derived board pulls did not reproduce the SDA fault") &&
+      require(std::abs(corrected_config.i2c_sda_pullup_ohm - 4700.0) < 1.0 &&
+                  corrected_config.i2c_sda_pulldown_ohm > 1e11 &&
+                  corrected.level("i2c_sda_high_v") ==
+                      host_sim::ElectricalLevel::High,
+              "R3 net mutation did not correct the derived SDA level") &&
+      require(std::abs(value_config.i2c_sda_pulldown_ohm - 47000.0) < 1.0,
+              "R3 value mutation did not reach the derived pull resistance");
+}
+
 bool run_runtime_control() {
   auto model = host_sim::BoardModel::load(
       root_path("kicad_files/hardware_challenge.kicad_pcb"),
@@ -226,6 +299,8 @@ bool run_case(const std::string &name) {
     return run_uart_level_mismatch();
   if (name == "i2c_pull_failure")
     return run_i2c_pull_failure();
+  if (name == "source_derived_i2c")
+    return run_source_derived_i2c();
   if (name == "runtime_control")
     return run_runtime_control();
   throw std::runtime_error("unknown analog case: " + name);

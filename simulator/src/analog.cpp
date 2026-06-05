@@ -1,4 +1,5 @@
 #include "host_simulator/analog.h"
+#include "host_simulator/board.h"
 
 #include <cerrno>
 #include <cmath>
@@ -7,6 +8,7 @@
 #include <fstream>
 #include <iomanip>
 #include <locale>
+#include <optional>
 #include <regex>
 #include <set>
 #include <sstream>
@@ -122,6 +124,63 @@ double parse_number(const std::string &value, const std::string &context) {
     throw std::runtime_error("invalid numeric value for " + context);
   }
   return parsed;
+}
+
+double parse_resistance(const std::string &value,
+                        const std::string &reference) {
+  const auto normalized = trim(value);
+  const auto marker = normalized.find_first_of("RrKkMm");
+  if (marker == std::string::npos) {
+    const auto resistance = parse_number(normalized, reference);
+    if (resistance <= 0.0) {
+      throw std::runtime_error("resistor value must be positive: " + reference);
+    }
+    return resistance;
+  }
+
+  double scale = 1.0;
+  switch (normalized[marker]) {
+  case 'K':
+  case 'k':
+    scale = 1e3;
+    break;
+  case 'M':
+    scale = 1e6;
+    break;
+  case 'm':
+    scale = 1e-3;
+    break;
+  default:
+    break;
+  }
+
+  auto digits = normalized.substr(0, marker);
+  const auto remainder = normalized.substr(marker + 1);
+  if (!remainder.empty()) {
+    digits += '.';
+    digits += remainder;
+  }
+  const auto resistance = parse_number(digits, reference) * scale;
+  if (!std::isfinite(resistance) || resistance <= 0.0) {
+    throw std::runtime_error("resistor value must be positive: " + reference);
+  }
+  return resistance;
+}
+
+void add_parallel(std::optional<double> &equivalent, double resistance) {
+  if (!equivalent.has_value()) {
+    equivalent = resistance;
+    return;
+  }
+  equivalent = 1.0 / (1.0 / *equivalent + 1.0 / resistance);
+}
+
+bool is_i2c_line(const std::string &net) {
+  return net == "CY_SDA" || net == "CY_SCL";
+}
+
+bool is_pull_rail(const std::string &net) {
+  return net == "+3.3V" || net == "GND";
 }
 
 bool has_suffix(const std::string &value, const std::string &suffix) {
@@ -265,6 +324,69 @@ double AnalogFixture::parameter(const std::string &name) const {
     throw std::out_of_range("unknown analog fixture parameter: " + name);
   }
   return value->second;
+}
+
+BoardElectricalConfig BoardElectricalConfig::from_board(
+    const BoardModel &model) {
+  std::optional<double> sda_pullup;
+  std::optional<double> sda_pulldown;
+  std::optional<double> scl_pullup;
+  std::optional<double> scl_pulldown;
+  for (const auto &[reference, component] : model.components()) {
+    if (component.schematic_lib_id.rfind("Device:R", 0) != 0) {
+      continue;
+    }
+    const auto pads = model.pads_for_component(reference);
+    if (pads.size() != 2) {
+      continue;
+    }
+    const auto &first = pads[0].net;
+    const auto &second = pads[1].net;
+    const auto line = is_i2c_line(first) && is_pull_rail(second) ? first
+        : is_i2c_line(second) && is_pull_rail(first) ? second
+                                                    : std::string{};
+    const auto rail = line.empty() ? std::string{}
+        : line == first           ? second
+                                  : first;
+    if (line.empty()) {
+      continue;
+    }
+
+    const auto &value = component.pcb_value.empty()
+        ? component.schematic_value
+        : component.pcb_value;
+    const auto resistance = parse_resistance(value, reference);
+    auto *target = line == "CY_SDA"
+        ? (rail == "+3.3V" ? &sda_pullup : &sda_pulldown)
+        : (rail == "+3.3V" ? &scl_pullup : &scl_pulldown);
+    add_parallel(*target, resistance);
+  }
+
+  BoardElectricalConfig config;
+  config.i2c_sda_pullup_ohm = sda_pullup.value_or(config.i2c_sda_pullup_ohm);
+  config.i2c_sda_pulldown_ohm =
+      sda_pulldown.value_or(config.i2c_sda_pulldown_ohm);
+  config.i2c_scl_pullup_ohm = scl_pullup.value_or(config.i2c_scl_pullup_ohm);
+  config.i2c_scl_pulldown_ohm =
+      scl_pulldown.value_or(config.i2c_scl_pulldown_ohm);
+  return config;
+}
+
+void BoardElectricalConfig::apply_to(AnalogFixture &fixture) const {
+  const auto validate = [](const char *name, double value) {
+    if (!std::isfinite(value) || value <= 0.0) {
+      throw std::runtime_error(std::string("invalid board electrical value: ") +
+                               name);
+    }
+  };
+  validate("i2c_sda_pullup_ohm", i2c_sda_pullup_ohm);
+  validate("i2c_sda_pulldown_ohm", i2c_sda_pulldown_ohm);
+  validate("i2c_scl_pullup_ohm", i2c_scl_pullup_ohm);
+  validate("i2c_scl_pulldown_ohm", i2c_scl_pulldown_ohm);
+  fixture.parameters["i2c_sda_pullup_ohm"] = i2c_sda_pullup_ohm;
+  fixture.parameters["i2c_sda_pulldown_ohm"] = i2c_sda_pulldown_ohm;
+  fixture.parameters["i2c_scl_pullup_ohm"] = i2c_scl_pullup_ohm;
+  fixture.parameters["i2c_scl_pulldown_ohm"] = i2c_scl_pulldown_ohm;
 }
 
 double AnalogObservation::measurement(const std::string &name) const {
