@@ -2,10 +2,10 @@
   "schema_version": 1,
   "sources": {
     "firmware": "firmware/firmware.ino",
+    "driver": "firmware/CY8C9560.cpp",
     "pcb": "kicad_files/hardware_challenge.kicad_pcb"
   },
   "immutable_sources": {
-    "driver": "firmware/CY8C9560.cpp",
     "driver_header": "firmware/CY8C9560.h",
     "schematic": "kicad_files/hardware_challenge.kicad_sch"
   },
@@ -129,6 +129,151 @@
           "new": "    const char next = UBX_SERIAL.read();\n    if (nmea_idx >= static_cast<int>(sizeof(nmea_buf) - 1)) {\n      nmea_idx = 0;\n    }\n    nmea_buf[nmea_idx++] = next;\n"
         }
       ]
+    },
+    {
+      "id": "DRIVER_PROBE_DIRECTIONS",
+      "artifact": "driver",
+      "surface": "firmware",
+      "peel": "P4",
+      "evidence": [
+        "CY8C9560 direction bits use 1 for input and 0 for output",
+        "firmware calls set_output(selected) followed by set_pd_inputs(~selected)",
+        "The unchanged driver first makes every pin an output and then makes every pin an input"
+      ],
+      "unlocks": "Leaves exactly the selected raw expander bit as a strong output and every other bit as a pull-down input",
+      "operations": [
+        {
+          "type": "replace_after",
+          "anchors": [
+            "void CY8C9560::set_pd_inputs(uint64_t pins) {",
+            "write_register(REG_PORT_SELECT, i);"
+          ],
+          "old": "    write_register(REG_PIN_DIRECTION, 0xFF);\n",
+          "new": "    write_register(REG_PIN_DIRECTION, (uint8_t) (pins >> (i * 8)));\n",
+          "max_distance": 160
+        },
+        {
+          "type": "replace_after",
+          "anchors": [
+            "void CY8C9560::set_output(uint64_t pins, uint64_t values) {",
+            "write_register(REG_PORT_SELECT, i);"
+          ],
+          "old": "    write_register(REG_PIN_DIRECTION, 0x00);\n",
+          "new": "    write_register(REG_PIN_DIRECTION, (uint8_t) ~(pins >> (i * 8)));\n",
+          "max_distance": 160
+        }
+      ]
+    },
+    {
+      "id": "FW_64BIT_MASKS",
+      "artifact": "firmware",
+      "surface": "firmware",
+      "peel": "P4",
+      "evidence": [
+        "NUM_HARNESS_PINS is 40 while plain integer literal 1 has target int width",
+        "sanitizer_a05_narrow_shift reports shift exponent 32 on the unchanged source"
+      ],
+      "unlocks": "Constructs and prints probe masks for all 40 logical rows without narrow-shift undefined behavior",
+      "operations": [
+        {
+          "type": "replace_once",
+          "old": "    uint64_t output_mask = 1 << i;\n",
+          "new": "    uint64_t output_mask = 1ULL << i;\n"
+        },
+        {
+          "type": "replace_once",
+          "old": "    for (int j = 0; j < NUM_HARNESS_PINS; j++) DBG_SERIAL.printf(\"%d\", (values & (1 << j)) ? 1 : 0);\n",
+          "new": "    for (int j = 0; j < NUM_HARNESS_PINS; j++) DBG_SERIAL.printf(\"%d\", (values & (1ULL << j)) ? 1 : 0);\n"
+        }
+      ]
+    },
+    {
+      "id": "FW_HARNESS_MAPPING",
+      "artifact": "firmware",
+      "surface": "firmware",
+      "peel": "P5",
+      "evidence": [
+        "The source-derived J3-to-U4 map assigns logical 0-19 to raw bits 0-19",
+        "The same map assigns logical 20-39 to raw bits 24-43 because U4 port 2 exposes only bits 0-3 to the harness"
+      ],
+      "unlocks": "Drives the raw expander bit for each logical contact and converts raw input bits back to the 40-bit logical namespace",
+      "operations": [
+        {
+          "type": "replace_once",
+          "old": "    uint64_t output_mask = 1ULL << i;\n    cy.set_output(output_mask, output_mask);\n    cy.set_pd_inputs(~output_mask);\n\n    uint64_t values = cy.read_inputs() & ~output_mask;\n",
+          "new": "    const int physical_pin = i < 20 ? i : i + 4;\n    uint64_t output_mask = 1ULL << physical_pin;\n    cy.set_output(output_mask, output_mask);\n    cy.set_pd_inputs(~output_mask);\n\n    const uint64_t raw_values = cy.read_inputs() & ~output_mask;\n    const uint64_t lower_pins = (1ULL << 20) - 1;\n    uint64_t values = (raw_values & lower_pins) |\n                      ((raw_values >> 4) & (lower_pins << 20));\n"
+        }
+      ]
+    },
+    {
+      "id": "FW_ALL_ROWS_VERDICT",
+      "artifact": "firmware",
+      "surface": "firmware",
+      "peel": "P6",
+      "evidence": [
+        "The harness specification requires every probe row to match",
+        "The unchanged source initializes passed=false and sets it true when any one row matches"
+      ],
+      "unlocks": "Passes only when every logical probe row matches its expected observation",
+      "operations": [
+        {
+          "type": "replace_once",
+          "old": "  bool passed = false;\n",
+          "new": "  bool passed = true;\n"
+        },
+        {
+          "type": "replace_once",
+          "old": "    if (values == EXPECTED_CONNECTIONS[i]) {\n      passed = true;\n    }\n",
+          "new": "    if (values != EXPECTED_CONNECTIONS[i]) {\n      passed = false;\n    }\n"
+        }
+      ]
+    },
+    {
+      "id": "FW_BUTTON_SESSION_EDGE",
+      "artifact": "firmware",
+      "surface": "firmware",
+      "peel": "P7",
+      "evidence": [
+        "BTN_TEST is wired active-low to ground",
+        "The unchanged gate returns while the button is physically pressed",
+        "A level-sensitive gate reruns the full test and appends another record on every loop while held"
+      ],
+      "unlocks": "Runs one test on each active-low press and rearms only after release",
+      "operations": [
+        {
+          "type": "replace_once",
+          "old": "bool time_fixed = false;\n",
+          "new": "bool time_fixed = false;\nbool test_button_latched = false;\n"
+        },
+        {
+          "type": "replace_once",
+          "old": "  pinMode(PIN_BTN_TEST, INPUT);\n",
+          "new": "  pinMode(PIN_BTN_TEST, INPUT_PULLUP);\n"
+        },
+        {
+          "type": "replace_once",
+          "old": "  // Start testing only if the button is pressed\n  if (digitalRead(PIN_BTN_TEST) == LOW) return;\n  set_status(BUSY);\n",
+          "new": "  // Run once per active-low press and rearm after release.\n  const bool test_button_pressed = digitalRead(PIN_BTN_TEST) == LOW;\n  if (!test_button_pressed) {\n    test_button_latched = false;\n    return;\n  }\n  if (test_button_latched) return;\n  test_button_latched = true;\n  set_status(BUSY);\n"
+        }
+      ]
+    },
+    {
+      "id": "FW_SD_WRITE_CHECKS",
+      "artifact": "firmware",
+      "surface": "firmware",
+      "peel": "P9",
+      "evidence": [
+        "Arduino File print and println report the number of bytes accepted",
+        "The unchanged source checks only whether open succeeded and silently accepts partial records"
+      ],
+      "unlocks": "Reports a result record that the storage layer accepted only partially",
+      "operations": [
+        {
+          "type": "replace_once",
+          "old": "  if (f) {\n    f.print(date); f.print(\" - \"); f.print(utc_time); f.print(\": \"); // raw date + time strings are fine here\n    f.println(passed ? \"Passed\" : \"Failed\");\n    f.close();\n  } else {\n",
+          "new": "  if (f) {\n    const char *result = passed ? \"Passed\" : \"Failed\";\n    bool complete = true;\n    complete &= f.print(date) == strlen(date);\n    complete &= f.print(\" - \") == 3;\n    complete &= f.print(utc_time) == strlen(utc_time);\n    complete &= f.print(\": \") == 2;\n    complete &= f.print(result) == strlen(result);\n    complete &= f.print(\"\\r\\n\") == 2;\n    f.close();\n    if (!complete) DBG_SERIAL.println(\"Failed to write complete log entry\");\n  } else {\n"
+        }
+      ]
     }
   ],
   "deferred_repairs": [
@@ -138,6 +283,13 @@
       "peel": "P3",
       "reason": "GpsReceiver does not consume UBX_SAFEBOOT or UBX_RST_N GPIO mode and level, so the current simulator cannot provide a causal acquisition witness.",
       "required_fidelity": "Model NEO-M8 reset and safeboot pins from runtime GPIO state before admitting a reachability claim."
+    },
+    {
+      "id": "FW_LED_AND_BOARD_PATH",
+      "surface": "firmware_and_pcb",
+      "peel": "P8",
+      "reason": "Runtime::led_state observes only GPIO mode and value and does not solve the isolated common-anode copper path or missing series resistance.",
+      "required_fidelity": "Complete Q3 closed-loop MCU drive export and KiCad-derived solved-level feedback before admitting P8."
     }
   ]
 }

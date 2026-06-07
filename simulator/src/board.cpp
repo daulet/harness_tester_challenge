@@ -1232,7 +1232,8 @@ const std::vector<std::size_t>& Harness::neighbors(std::size_t pin) const {
 }
 
 BoardModel BoardModel::load(const std::string& pcb_path,
-                           const std::string& schematic_path) {
+                           const std::string& schematic_path,
+                           HarnessRoutingMode harness_routing) {
   const auto pcb = parse_pcb(pcb_path);
   const auto schematic = parse_schematic(schematic_path);
 
@@ -1336,7 +1337,8 @@ BoardModel BoardModel::load(const std::string& pcb_path,
       }
     }
     model.channels_[index] = {index, physical_net, gport->first, gport->second};
-    if (connected_pad) {
+    if (connected_pad ||
+        harness_routing == HarnessRoutingMode::SchematicIdeal) {
       model.external_to_internal_[index].push_back(index);
     }
   }

@@ -30,6 +30,93 @@
         "FW_NMEA_BOUNDS"
       ],
       "invariant": "Frequent polling of the source-backed default GPS stream reaches a time lock while physical I2C remains reachable."
+    },
+    {
+      "id": "P4",
+      "requires": ["P3"],
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS",
+        "FW_64BIT_MASKS"
+      ],
+      "invariant": "All 40 loop rows execute without narrow-shift undefined behavior, and the final raw selected bit remains the only output."
+    },
+    {
+      "id": "P5",
+      "requires": ["P4"],
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS",
+        "FW_64BIT_MASKS",
+        "FW_HARNESS_MAPPING"
+      ],
+      "invariant": "Logical harness rows 20-39 use raw expander bits 24-43 and observations return to logical bit positions."
+    },
+    {
+      "id": "P6",
+      "requires": ["P5"],
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS",
+        "FW_64BIT_MASKS",
+        "FW_HARNESS_MAPPING",
+        "FW_ALL_ROWS_VERDICT"
+      ],
+      "invariant": "A harness passes only when every oracle row matches and fails when only one row matches."
+    },
+    {
+      "id": "P7",
+      "requires": ["P6"],
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS",
+        "FW_64BIT_MASKS",
+        "FW_HARNESS_MAPPING",
+        "FW_ALL_ROWS_VERDICT",
+        "FW_BUTTON_SESSION_EDGE"
+      ],
+      "invariant": "Each active-low press runs one complete session, a held press does not repeat, and release rearms the next press."
+    },
+    {
+      "id": "P8",
+      "requires": ["P7"],
+      "repairs": [],
+      "deferred": true,
+      "invariant": "Blocked on Q3 closed-loop LED electrical feedback; no GPIO-only surrogate is admissible."
+    },
+    {
+      "id": "P9",
+      "requires": ["P7"],
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS",
+        "FW_64BIT_MASKS",
+        "FW_HARNESS_MAPPING",
+        "FW_ALL_ROWS_VERDICT",
+        "FW_BUTTON_SESSION_EDGE",
+        "FW_SD_WRITE_CHECKS"
+      ],
+      "invariant": "A partial result record is observable as a storage failure rather than silently accepted."
     }
   ],
   "variants": [
@@ -117,6 +204,169 @@
       ],
       "counterfactual_for": "FW_NMEA_BOUNDS",
       "scenario_ids": ["normal_default_gps_sanitized"]
+    },
+    {
+      "id": "P4",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS",
+        "FW_64BIT_MASKS"
+      ],
+      "scenario_ids": ["complete_probe_scan"]
+    },
+    {
+      "id": "P4_without_DRIVER_PROBE_DIRECTIONS",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "FW_64BIT_MASKS"
+      ],
+      "counterfactual_for": "DRIVER_PROBE_DIRECTIONS",
+      "scenario_ids": ["complete_probe_scan"]
+    },
+    {
+      "id": "P4_without_FW_64BIT_MASKS",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS"
+      ],
+      "counterfactual_for": "FW_64BIT_MASKS",
+      "scenario_ids": ["complete_probe_scan_sanitized"]
+    },
+    {
+      "id": "P5",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS",
+        "FW_64BIT_MASKS",
+        "FW_HARNESS_MAPPING"
+      ],
+      "scenario_ids": ["logical_mapping_pair"]
+    },
+    {
+      "id": "P5_without_FW_HARNESS_MAPPING",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS",
+        "FW_64BIT_MASKS"
+      ],
+      "counterfactual_for": "FW_HARNESS_MAPPING",
+      "scenario_ids": ["logical_mapping_pair"]
+    },
+    {
+      "id": "P6",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS",
+        "FW_64BIT_MASKS",
+        "FW_HARNESS_MAPPING",
+        "FW_ALL_ROWS_VERDICT"
+      ],
+      "scenario_ids": ["verdict_all_rows"]
+    },
+    {
+      "id": "P6_without_FW_ALL_ROWS_VERDICT",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS",
+        "FW_64BIT_MASKS",
+        "FW_HARNESS_MAPPING"
+      ],
+      "counterfactual_for": "FW_ALL_ROWS_VERDICT",
+      "scenario_ids": ["verdict_all_rows"]
+    },
+    {
+      "id": "P7",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS",
+        "FW_64BIT_MASKS",
+        "FW_HARNESS_MAPPING",
+        "FW_ALL_ROWS_VERDICT",
+        "FW_BUTTON_SESSION_EDGE"
+      ],
+      "scenario_ids": ["button_press_hold_release"]
+    },
+    {
+      "id": "P7_without_FW_BUTTON_SESSION_EDGE",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS",
+        "FW_64BIT_MASKS",
+        "FW_HARNESS_MAPPING",
+        "FW_ALL_ROWS_VERDICT"
+      ],
+      "counterfactual_for": "FW_BUTTON_SESSION_EDGE",
+      "scenario_ids": ["button_press_hold_release"]
+    },
+    {
+      "id": "P9",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS",
+        "FW_64BIT_MASKS",
+        "FW_HARNESS_MAPPING",
+        "FW_ALL_ROWS_VERDICT",
+        "FW_BUTTON_SESSION_EDGE",
+        "FW_SD_WRITE_CHECKS"
+      ],
+      "scenario_ids": ["sd_partial_record"]
+    },
+    {
+      "id": "P9_without_FW_SD_WRITE_CHECKS",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS",
+        "FW_64BIT_MASKS",
+        "FW_HARNESS_MAPPING",
+        "FW_ALL_ROWS_VERDICT",
+        "FW_BUTTON_SESSION_EDGE"
+      ],
+      "counterfactual_for": "FW_SD_WRITE_CHECKS",
+      "scenario_ids": ["sd_partial_record"]
     }
   ]
 }

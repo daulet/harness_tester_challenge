@@ -89,10 +89,17 @@ private:
   std::array<std::vector<std::size_t>, kHarnessPins> neighbors_{};
 };
 
+enum class HarnessRoutingMode {
+  AsDrawn,
+  SchematicIdeal,
+};
+
 class BoardModel {
 public:
   static BoardModel load(const std::string& pcb_path,
-                         const std::string& schematic_path);
+                         const std::string& schematic_path,
+                         HarnessRoutingMode harness_routing =
+                             HarnessRoutingMode::AsDrawn);
 
   const HarnessChannel& channel(std::size_t harness_index) const;
   const BoardPad& pad(const std::string& reference, const std::string& pad) const;

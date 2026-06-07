@@ -13,8 +13,18 @@
     independent oracle, P0-P3 variants, leave-one-out controls, positive and
     negative ASan witnesses, 15/15 targeted CTests, and direct Claude
     pass-end review PASS after two findings were corrected.
-- [ ] **Next:** implement P4-P9 generated repairs and counterfactuals.
-  - Prerequisite: initial P0-P3 lattice complete.
+- [x] **Done:** implement P4-P7 and P9 generated repairs and counterfactuals.
+  - Completion: generated driver repairs isolate the selected probe output;
+    UBSan proves the 64-bit-mask dependency; source-derived logical/raw mapping
+    reaches bits 24-43 through an explicitly labeled schematic-ideal fixture;
+    verdict, button-session, and SD short-write controls all have leave-one-out
+    witnesses.
+  - Validation: 89/89 CTests, including full-record and one-byte-short CRLF
+    controls, with original firmware, driver, schematic, and PCB hashes
+    unchanged.
+- [ ] **Next:** complete P8 through Q3 closed-loop LED electrical feedback.
+  - Prerequisite: export MCU drive states into the KiCad-derived solver and feed
+    solved levels back into firmware-visible observations.
 - [ ] Add the full generated harness, peripheral, and sequence campaigns plus
   delta minimization.
   - Prerequisite: P4-P9 and Q3 closed-loop all-channel behavior.

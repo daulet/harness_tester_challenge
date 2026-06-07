@@ -1,5 +1,16 @@
 # Simulator realism lessons
 
+## 2026-06-07 - Storage witnesses must exercise the deciding byte
+
+- Symptom: a partial-write test failed during the timestamp body, so it could
+  not validate the later line-ending byte-count check.
+- Root cause: the repair assumed the host shim's one-byte `println()` behavior,
+  while the target Print implementation uses CRLF.
+- Source evidence: the P9 direct-Claude staged-diff review and the 24-byte
+  one-byte-short CRLF counterexample.
+- Permanent rule: emit protocol bytes explicitly when their count matters, and
+  include both the exact boundary failure and a complete-success control.
+
 ## 2026-06-07 - Reviewer input must include untracked implementation files
 
 - Symptom: a diff-only reviewer could assess CMake wiring while missing newly

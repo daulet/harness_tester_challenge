@@ -56,6 +56,44 @@
       "i2c_mode": "physical",
       "button_physically_pressed": true,
       "sanitizer": "address"
+    },
+    {
+      "id": "complete_probe_scan",
+      "gps": {"injection": "$GNRMC valid fix"},
+      "i2c_mode": "physical",
+      "button_gate": "pre-P7 released level",
+      "expected": "40 rows execute and one raw output remains selected"
+    },
+    {
+      "id": "complete_probe_scan_sanitized",
+      "gps": {"injection": "$GNRMC valid fix"},
+      "i2c_mode": "physical",
+      "button_gate": "pre-P7 released level",
+      "sanitizer": "undefined",
+      "expected": "narrow mask counterfactual fails at shift exponent 32"
+    },
+    {
+      "id": "logical_mapping_pair",
+      "board_fixture": "source-derived schematic-ideal J3-to-U4 routing",
+      "harness": [[20, 21]],
+      "expected": "logical row 20 observes logical bit 21 through raw bits 24 and 25"
+    },
+    {
+      "id": "verdict_all_rows",
+      "board_fixture": "source-derived schematic-ideal J3-to-U4 routing",
+      "expected": "an all-row oracle match passes and an exactly-one-row match fails"
+    },
+    {
+      "id": "button_press_hold_release",
+      "board_fixture": "source-derived schematic-ideal J3-to-U4 routing",
+      "sequence": ["release", "press", "hold", "release", "press"],
+      "expected": "exactly two sessions"
+    },
+    {
+      "id": "sd_partial_record",
+      "board_fixture": "source-derived schematic-ideal J3-to-U4 routing",
+      "sd_capacity_bytes": [12, 24, 25],
+      "expected": "body truncation and a one-byte-short CRLF emit a failure diagnostic, while a complete CRLF record does not"
     }
   ]
 }

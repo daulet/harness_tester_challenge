@@ -184,9 +184,8 @@ def generate(root, output, explicit_commit):
 
             variant_dir = temporary_variants / variant["id"]
             generated_paths = {
-                "firmware": variant_dir / "firmware/firmware.ino",
-                "pcb": variant_dir
-                / "kicad_files/hardware_challenge.kicad_pcb",
+                artifact: variant_dir / catalog["sources"][artifact]
+                for artifact in contents
             }
             artifact_hashes = {}
             for artifact, path in generated_paths.items():
@@ -246,6 +245,7 @@ def generate(root, output, explicit_commit):
 
 
 def verify(root, output):
+    catalog = load_json(root / "simulator/blocker_peeling/repair_catalog.yaml")
     manifest_path = output / "variant_manifest.jsonl"
     if not manifest_path.exists():
         raise ValueError("variant manifest does not exist")
@@ -260,8 +260,8 @@ def verify(root, output):
     for entry in entries:
         variant_dir = output / "variants" / entry["variant_id"]
         paths = {
-            "firmware": variant_dir / "firmware/firmware.ino",
-            "pcb": variant_dir / "kicad_files/hardware_challenge.kicad_pcb",
+            artifact: variant_dir / relative
+            for artifact, relative in catalog["sources"].items()
         }
         for artifact, path in paths.items():
             actual = sha256_file(path)
@@ -274,7 +274,6 @@ def verify(root, output):
         if sha256_file(metadata_path) != entry["metadata_sha256"]:
             raise ValueError(f"{entry['variant_id']} metadata hash mismatch")
 
-    catalog = load_json(root / "simulator/blocker_peeling/repair_catalog.yaml")
     source_paths = {
         key: root / relative for key, relative in catalog["sources"].items()
     }

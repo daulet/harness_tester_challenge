@@ -96,6 +96,17 @@ set(BLOCKER_PEELING_VARIANTS
   P3_without_PCB_UART_CROSS
   P3_without_FW_ACCEPT_GNRMC
   P3_without_FW_NMEA_BOUNDS
+  P4
+  P4_without_DRIVER_PROBE_DIRECTIONS
+  P4_without_FW_64BIT_MASKS
+  P5
+  P5_without_FW_HARNESS_MAPPING
+  P6
+  P6_without_FW_ALL_ROWS_VERDICT
+  P7
+  P7_without_FW_BUTTON_SESSION_EDGE
+  P9
+  P9_without_FW_SD_WRITE_CHECKS
 )
 
 set(BLOCKER_PEELING_BYPRODUCTS
@@ -104,6 +115,7 @@ set(BLOCKER_PEELING_BYPRODUCTS
 foreach(variant IN LISTS BLOCKER_PEELING_VARIANTS)
   list(APPEND BLOCKER_PEELING_BYPRODUCTS
     "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/firmware/firmware.ino"
+    "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/firmware/CY8C9560.cpp"
     "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/kicad_files/hardware_challenge.kicad_pcb"
     "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/variant.generated.json"
   )
@@ -134,15 +146,19 @@ function(add_blocker_peeling_case target variant)
   set(firmware_source
     "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/firmware/firmware.ino"
   )
+  set(driver_source
+    "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/firmware/CY8C9560.cpp"
+  )
   set_source_files_properties(${firmware_source} PROPERTIES
     GENERATED TRUE
     LANGUAGE CXX
     COMPILE_OPTIONS "-x;c++"
   )
+  set_source_files_properties(${driver_source} PROPERTIES GENERATED TRUE)
   add_executable(${target}
     simulator/tests/blocker_peeling_cases.cpp
     ${firmware_source}
-    firmware/CY8C9560.cpp
+    ${driver_source}
   )
   add_dependencies(${target} generate_blocker_peeling_variants)
   target_link_libraries(${target} PRIVATE host_simulator)
@@ -174,6 +190,54 @@ add_blocker_peeling_case(
   blocker_p3_without_uart P3_without_PCB_UART_CROSS)
 add_blocker_peeling_case(
   blocker_p3_without_gnrmc P3_without_FW_ACCEPT_GNRMC)
+
+function(add_blocker_peeling_workflow_case target variant)
+  set(firmware_source
+    "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/firmware/firmware.ino"
+  )
+  set(driver_source
+    "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/firmware/CY8C9560.cpp"
+  )
+  set_source_files_properties(${firmware_source} PROPERTIES
+    GENERATED TRUE
+    LANGUAGE CXX
+    COMPILE_OPTIONS "-x;c++"
+  )
+  set_source_files_properties(${driver_source} PROPERTIES GENERATED TRUE)
+  add_executable(${target}
+    simulator/tests/blocker_peeling_workflow_cases.cpp
+    ${firmware_source}
+    ${driver_source}
+  )
+  add_dependencies(${target} generate_blocker_peeling_variants)
+  target_link_libraries(${target} PRIVATE host_simulator)
+  target_compile_definitions(${target} PRIVATE
+    HOST_SIM_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
+    BLOCKER_VARIANT_DIR="${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}"
+    BLOCKER_VARIANT_ID="${variant}"
+  )
+  target_compile_options(${target} PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+  )
+endfunction()
+
+add_blocker_peeling_workflow_case(blocker_p4 P4)
+add_blocker_peeling_workflow_case(
+  blocker_p4_without_directions P4_without_DRIVER_PROBE_DIRECTIONS)
+add_blocker_peeling_workflow_case(blocker_p5 P5)
+add_blocker_peeling_workflow_case(
+  blocker_p5_without_mapping P5_without_FW_HARNESS_MAPPING)
+add_blocker_peeling_workflow_case(blocker_p6 P6)
+add_blocker_peeling_workflow_case(
+  blocker_p6_without_verdict P6_without_FW_ALL_ROWS_VERDICT)
+add_blocker_peeling_workflow_case(blocker_p7 P7)
+add_blocker_peeling_workflow_case(
+  blocker_p7_without_button P7_without_FW_BUTTON_SESSION_EDGE)
+add_blocker_peeling_workflow_case(blocker_p9 P9)
+add_blocker_peeling_workflow_case(
+  blocker_p9_without_sd_checks P9_without_FW_SD_WRITE_CHECKS)
 
 function(check_sanitizer_available sanitizer result)
   set(saved_required_flags "${CMAKE_REQUIRED_FLAGS}")
@@ -415,6 +479,38 @@ add_test(
   NAME blocker_peeling_p3_without_gnrmc
   COMMAND blocker_p3_without_gnrmc
 )
+add_test(NAME blocker_peeling_p4
+  COMMAND blocker_p4 probe-repaired)
+add_test(NAME blocker_peeling_p4_without_directions
+  COMMAND blocker_p4_without_directions probe-counterfactual)
+add_test(NAME blocker_peeling_p4_set_output
+  COMMAND blocker_p4 set-output-repaired)
+add_test(NAME blocker_peeling_p4_set_output_without_directions
+  COMMAND blocker_p4_without_directions set-output-counterfactual)
+add_test(NAME blocker_peeling_p5
+  COMMAND blocker_p5 mapping-repaired)
+add_test(NAME blocker_peeling_p5_without_mapping
+  COMMAND blocker_p5_without_mapping mapping-counterfactual)
+add_test(NAME blocker_peeling_p6_rejects_one_row
+  COMMAND blocker_p6 verdict-one-repaired)
+add_test(NAME blocker_peeling_p6_accepts_all_rows
+  COMMAND blocker_p6 verdict-all-repaired)
+add_test(NAME blocker_peeling_p6_without_verdict
+  COMMAND blocker_p6_without_verdict verdict-one-counterfactual)
+add_test(NAME blocker_peeling_p6_without_verdict_accepts_all_rows
+  COMMAND blocker_p6_without_verdict verdict-all-repaired)
+add_test(NAME blocker_peeling_p7
+  COMMAND blocker_p7 button-repaired)
+add_test(NAME blocker_peeling_p7_without_button
+  COMMAND blocker_p7_without_button button-counterfactual)
+add_test(NAME blocker_peeling_p9
+  COMMAND blocker_p9 sd-repaired)
+add_test(NAME blocker_peeling_p9_line_ending_short
+  COMMAND blocker_p9 sd-line-ending-repaired)
+add_test(NAME blocker_peeling_p9_full_record
+  COMMAND blocker_p9 sd-full-repaired)
+add_test(NAME blocker_peeling_p9_without_sd_checks
+  COMMAND blocker_p9_without_sd_checks sd-counterfactual)
 add_test(NAME uart_timing_and_topology COMMAND uart_cases)
 add_test(NAME button_and_reset_timing COMMAND timing_cases)
 add_test(NAME i2c_timing_and_faults COMMAND i2c_cases)
@@ -538,6 +634,41 @@ else()
     PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 if(HOST_SIM_HAS_UBSAN)
+  add_blocker_peeling_workflow_case(blocker_p4_ubsan P4)
+  target_compile_options(blocker_p4_ubsan PRIVATE
+    -fno-omit-frame-pointer
+    -fsanitize=undefined
+    -fno-sanitize-recover=undefined
+  )
+  target_link_options(blocker_p4_ubsan PRIVATE
+    -fno-omit-frame-pointer
+    -fsanitize=undefined
+    -fno-sanitize-recover=undefined
+  )
+  add_test(NAME blocker_peeling_p4_ubsan
+    COMMAND blocker_p4_ubsan probe-repaired)
+
+  add_blocker_peeling_workflow_case(
+    blocker_p4_without_masks_ubsan P4_without_FW_64BIT_MASKS)
+  target_compile_options(blocker_p4_without_masks_ubsan PRIVATE
+    -fno-omit-frame-pointer
+    -fsanitize=undefined
+    -fno-sanitize-recover=undefined
+  )
+  target_link_options(blocker_p4_without_masks_ubsan PRIVATE
+    -fno-omit-frame-pointer
+    -fsanitize=undefined
+    -fno-sanitize-recover=undefined
+  )
+  add_test(NAME blocker_peeling_p4_without_masks
+    COMMAND ${CMAKE_COMMAND}
+      -DPROGRAM=$<TARGET_FILE:blocker_p4_without_masks_ubsan>
+      -DCASE=probe-repaired
+      -DSANITIZER_ENV=UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=0
+      "-DEXPECTED_1=runtime error:"
+      "-DEXPECTED_2=shift exponent 32"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/simulator/tests/expect_sanitizer_failure.cmake)
+
   add_test(NAME sanitizer_a05_narrow_shift
     COMMAND ${CMAKE_COMMAND}
       -DPROGRAM=$<TARGET_FILE:firmware_ubsan_cases>
@@ -546,4 +677,15 @@ if(HOST_SIM_HAS_UBSAN)
       "-DEXPECTED_1=runtime error:"
       -DEXPECTED_2=shift
       -P ${CMAKE_CURRENT_SOURCE_DIR}/simulator/tests/expect_sanitizer_failure.cmake)
+else()
+  add_test(NAME blocker_peeling_p4_ubsan
+    COMMAND "${Python3_EXECUTABLE}" -c
+      "import sys; print('UndefinedBehaviorSanitizer unavailable'); sys.exit(77)")
+  set_tests_properties(blocker_peeling_p4_ubsan
+    PROPERTIES SKIP_RETURN_CODE 77)
+  add_test(NAME blocker_peeling_p4_without_masks
+    COMMAND "${Python3_EXECUTABLE}" -c
+      "import sys; print('UndefinedBehaviorSanitizer unavailable'); sys.exit(77)")
+  set_tests_properties(blocker_peeling_p4_without_masks
+    PROPERTIES SKIP_RETURN_CODE 77)
 endif()
