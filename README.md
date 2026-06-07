@@ -129,6 +129,12 @@ counterfactual, including a 384-case deterministic parser corpus. See
 `reports/BLOCKER_PEELING_REPORT.md` for admission decisions and explicit
 fidelity limits.
 
+The checked-in
+`simulator/blocker_peeling/corpus/nmea_peripheral_regression.json` adds 842
+replayable valid, invalid, post-lock, and loop-framing cases. CTest regenerates
+the corpus byte-for-byte and runs it through baseline, AddressSanitizer, and
+UndefinedBehaviorSanitizer builds when those sanitizers are available.
+
 The analog tests require an installed `ngspice` executable. CMake discovers it
 from `PATH`; when it is absent, the named analog tests are reported as skipped.
 On macOS the local requirement can be installed with `brew install ngspice`.

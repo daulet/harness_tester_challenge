@@ -320,6 +320,55 @@ add_blocker_peeling_event_campaign(
   blocker_p9_rmc_counterfactual_campaign
   P9_RMC_VALIDATED_without_FW_RMC_VALIDATE_ATOMIC 0)
 
+function(add_blocker_peeling_persisted_corpus target sanitizer)
+  set(variant P9_RMC_VALIDATED)
+  set(firmware_source
+    "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/firmware/firmware.ino"
+  )
+  set(driver_source
+    "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/firmware/CY8C9560.cpp"
+  )
+  set_source_files_properties(${firmware_source} PROPERTIES
+    GENERATED TRUE
+    LANGUAGE CXX
+    COMPILE_OPTIONS "-x;c++"
+  )
+  set_source_files_properties(${driver_source} PROPERTIES GENERATED TRUE)
+  add_executable(${target}
+    simulator/tests/blocker_peeling_persisted_corpus.cpp
+    ${firmware_source}
+    ${driver_source}
+  )
+  add_dependencies(${target} generate_blocker_peeling_variants)
+  target_link_libraries(${target} PRIVATE host_simulator)
+  target_compile_definitions(${target} PRIVATE
+    HOST_SIM_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
+    BLOCKER_VARIANT_DIR="${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}"
+  )
+  target_compile_options(${target} PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+  )
+  if(NOT sanitizer STREQUAL "none")
+    target_compile_options(${target} PRIVATE
+      -fno-omit-frame-pointer
+      -fsanitize=${sanitizer}
+    )
+    target_link_options(${target} PRIVATE
+      -fno-omit-frame-pointer
+      -fsanitize=${sanitizer}
+    )
+    if(sanitizer STREQUAL "undefined")
+      target_compile_options(${target} PRIVATE -fno-sanitize-recover=undefined)
+      target_link_options(${target} PRIVATE -fno-sanitize-recover=undefined)
+    endif()
+  endif()
+endfunction()
+
+add_blocker_peeling_persisted_corpus(
+  blocker_p9_rmc_persisted_corpus none)
+
 function(add_blocker_peeling_led_case target variant)
   set(firmware_source
     "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/firmware/firmware.ino"
@@ -399,12 +448,16 @@ check_sanitizer_available(address HOST_SIM_HAS_ASAN)
 check_sanitizer_available(undefined HOST_SIM_HAS_UBSAN)
 if(HOST_SIM_HAS_ASAN)
   add_firmware_sanitizer_case(firmware_asan_cases address)
+  add_blocker_peeling_persisted_corpus(
+    blocker_p9_rmc_persisted_corpus_asan address)
   message(STATUS "AddressSanitizer firmware witness: enabled")
 else()
   message(STATUS "AddressSanitizer firmware witness: unavailable")
 endif()
 if(HOST_SIM_HAS_UBSAN)
   add_firmware_sanitizer_case(firmware_ubsan_cases undefined)
+  add_blocker_peeling_persisted_corpus(
+    blocker_p9_rmc_persisted_corpus_ubsan undefined)
   message(STATUS "UndefinedBehaviorSanitizer firmware witness: enabled")
 else()
   message(STATUS "UndefinedBehaviorSanitizer firmware witness: unavailable")
@@ -674,6 +727,58 @@ add_test(NAME blocker_peeling_peripheral_event_campaign
     --counterfactual "$<TARGET_FILE:blocker_p9_rmc_counterfactual_campaign>"
     --output
       "${BLOCKER_PEELING_OUTPUT_DIR}/peripheral_exposure_matrix.csv")
+set(BLOCKER_PEELING_PERSISTED_CORPUS
+  "${CMAKE_CURRENT_SOURCE_DIR}/simulator/blocker_peeling/corpus/nmea_peripheral_regression.json"
+)
+set(BLOCKER_PEELING_PERSISTED_CORPUS_GENERATOR
+  "${CMAKE_CURRENT_SOURCE_DIR}/simulator/blocker_peeling/generate_persisted_corpus.py"
+)
+set(BLOCKER_PEELING_PERSISTED_CORPUS_TEST
+  "${CMAKE_CURRENT_SOURCE_DIR}/simulator/blocker_peeling/test_persisted_corpus.py"
+)
+add_test(NAME blocker_peeling_persisted_corpus_campaign
+  COMMAND
+    "${Python3_EXECUTABLE}" "${BLOCKER_PEELING_PERSISTED_CORPUS_TEST}"
+    --root "${CMAKE_CURRENT_SOURCE_DIR}"
+    --corpus "${BLOCKER_PEELING_PERSISTED_CORPUS}"
+    --generator "${BLOCKER_PEELING_PERSISTED_CORPUS_GENERATOR}"
+    --runner-label baseline
+    --runner "$<TARGET_FILE:blocker_p9_rmc_persisted_corpus>"
+    --output "${BLOCKER_PEELING_OUTPUT_DIR}/persisted_corpus_matrix.csv")
+if(HOST_SIM_HAS_ASAN)
+  add_test(NAME blocker_peeling_persisted_corpus_asan
+    COMMAND
+      "${Python3_EXECUTABLE}" "${BLOCKER_PEELING_PERSISTED_CORPUS_TEST}"
+      --root "${CMAKE_CURRENT_SOURCE_DIR}"
+      --corpus "${BLOCKER_PEELING_PERSISTED_CORPUS}"
+      --generator "${BLOCKER_PEELING_PERSISTED_CORPUS_GENERATOR}"
+      --runner-label asan
+      --runner "$<TARGET_FILE:blocker_p9_rmc_persisted_corpus_asan>"
+      --output "${BLOCKER_PEELING_OUTPUT_DIR}/persisted_corpus_asan_matrix.csv")
+else()
+  add_test(NAME blocker_peeling_persisted_corpus_asan
+    COMMAND "${Python3_EXECUTABLE}" -c
+      "import sys; print('AddressSanitizer unavailable'); sys.exit(77)")
+  set_tests_properties(blocker_peeling_persisted_corpus_asan
+    PROPERTIES SKIP_RETURN_CODE 77)
+endif()
+if(HOST_SIM_HAS_UBSAN)
+  add_test(NAME blocker_peeling_persisted_corpus_ubsan
+    COMMAND
+      "${Python3_EXECUTABLE}" "${BLOCKER_PEELING_PERSISTED_CORPUS_TEST}"
+      --root "${CMAKE_CURRENT_SOURCE_DIR}"
+      --corpus "${BLOCKER_PEELING_PERSISTED_CORPUS}"
+      --generator "${BLOCKER_PEELING_PERSISTED_CORPUS_GENERATOR}"
+      --runner-label ubsan
+      --runner "$<TARGET_FILE:blocker_p9_rmc_persisted_corpus_ubsan>"
+      --output "${BLOCKER_PEELING_OUTPUT_DIR}/persisted_corpus_ubsan_matrix.csv")
+else()
+  add_test(NAME blocker_peeling_persisted_corpus_ubsan
+    COMMAND "${Python3_EXECUTABLE}" -c
+      "import sys; print('UndefinedBehaviorSanitizer unavailable'); sys.exit(77)")
+  set_tests_properties(blocker_peeling_persisted_corpus_ubsan
+    PROPERTIES SKIP_RETURN_CODE 77)
+endif()
 add_test(NAME uart_timing_and_topology COMMAND uart_cases)
 add_test(NAME button_and_reset_timing COMMAND timing_cases)
 add_test(NAME i2c_timing_and_faults COMMAND i2c_cases)

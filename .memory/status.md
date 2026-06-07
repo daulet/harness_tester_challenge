@@ -1,15 +1,14 @@
 # Current status
 
 - Branch: `simulator`.
-- Last completed pass: peripheral/event Campaign C002, atomic RMC
-  counterfactual, and BP-C003 through BP-C006 councils.
-- Current baseline: 99/99 CTest cases passed against
+- Last completed pass: persisted sanitizer Campaign C003 and BP-C007 council.
+- Current baseline: 102/102 CTest cases passed against
   `/opt/homebrew/bin/ngspice`.
 - Sanitizer boundary: ASan A03 and UBSan A05 expected-failure witnesses pass with
   diagnostic matching on Apple Clang 21.
-- Active blocker-peeling item: close the peripheral/event slice, then run the
-  persisted sanitizer corpus and independent state-sequence expansions required
-  by the `goal.md` no-new-candidate stopping rule.
+- Active blocker-peeling item: complete the independent state-sequence
+  metamorphic expansion. Campaign C003 produced BP-C007 and merged it into A04,
+  resetting the `goal.md` no-new-candidate streak to zero.
 - Known local-only artifact: untracked `build/`.
 - Available boundaries: Apple Clang 21, CMake 4.2.3, clang-format, ngspice.
 - Missing boundary at bootstrap: `kicad-cli` is not installed or on `PATH`.
@@ -41,3 +40,8 @@
   zero differentials; the exact P9 counterfactual has nine, all A04/BP-M002.
   BP-C003 through BP-C006 were reviewed by three independent direct-Claude
   roles and final council; none survived as a new admission-bearing root.
+- Persisted sanitizer campaign: 842 checked-in cases cover valid, invalid,
+  post-lock, and loop-framing RMC behavior. An initial 39 date-suffix
+  differentials exposed a repair gap; after delimiter validation, baseline,
+  ASan, and UBSan matrices each contain 842 rows and zero differentials.
+  BP-C007 merged into A04 after three direct-Claude reviews and final council.

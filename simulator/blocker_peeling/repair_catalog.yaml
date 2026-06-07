@@ -152,6 +152,11 @@
           "type": "replace_once",
           "old": "  if (!separator || separator == sentence || separator[1] == 0 || separator[2] == 0) return false;\n  uint8_t checksum = 0;\n",
           "new": "  if (!separator || separator == sentence || separator[1] == 0 || separator[2] == 0) return false;\n  if (separator[3] != 0 && separator[3] != '\\r' && separator[3] != '\\n') return false;\n  uint8_t checksum = 0;\n"
+        },
+        {
+          "type": "replace_once",
+          "old": "    char status = 0;\n    const bool valid = nmea_checksum_valid(buf) &&\n      sscanf(buf + 6, \",%10[^,],%c,%*f,%*c,%*f,%*c,%*f,%*f,%6[^,]\", parsed_time, &status, parsed_date) == 3 &&\n      status == 'A' && nmea_time_valid(parsed_time) && nmea_date_valid(parsed_date);\n",
+          "new": "    char status = 0;\n    int parsed_end = 0;\n    const bool valid = nmea_checksum_valid(buf) &&\n      sscanf(buf + 6, \",%10[^,],%c,%*f,%*c,%*f,%*c,%*f,%*f,%6[^,]%n\", parsed_time, &status, parsed_date, &parsed_end) == 3 &&\n      (buf[6 + parsed_end] == ',' || buf[6 + parsed_end] == '*') &&\n      status == 'A' && nmea_time_valid(parsed_time) && nmea_date_valid(parsed_date);\n"
         }
       ]
     },

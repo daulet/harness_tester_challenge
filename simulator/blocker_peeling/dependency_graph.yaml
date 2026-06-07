@@ -552,7 +552,10 @@
         "FW_SD_WRITE_CHECKS",
         "FW_RMC_VALIDATE_ATOMIC"
       ],
-      "scenario_ids": ["peripheral_event_campaign"]
+      "scenario_ids": [
+        "peripheral_event_campaign",
+        "persisted_sanitizer_corpus_campaign"
+      ]
     },
     {
       "id": "P9_RMC_VALIDATED_without_FW_RMC_VALIDATE_ATOMIC",

@@ -242,3 +242,28 @@
   value or rail net is mutated.
 - Permanent rule: authored electrical defaults may fill unmodeled gaps, but a
   parsed board fact overrides the corresponding fixture parameter.
+
+## 2026-06-07 - Width-limited scans still need field-boundary validation
+
+- Symptom: `%6[^,]` copied a six-character date and reported success even when a
+  seventh non-delimiter character remained in the field.
+- Root cause: assignment width protects the destination buffer but does not
+  prove the source token ended at the expected boundary.
+- Witness: 32 unlocked and seven post-lock persisted corpus cases accepted a
+  checksum-valid `ddmmyyX` date before the generated repair checked the next
+  byte with `%n`.
+- Permanent rule: after every width-limited structured-text conversion, validate
+  the next delimiter or use a parser that consumes and validates the complete
+  field.
+
+## 2026-06-07 - Reachability limits impact, not parser causality
+
+- Symptom: a fidelity review rejected a parser witness because the default GPS
+  model would not emit the malformed sentence.
+- Root cause: it conflated production-source reachability with whether direct
+  negative-input testing causally proves a source parser property.
+- Resolution: final council upheld the parser witness but merged it into A04
+  because the same call site, root, and repair already owned the behavior.
+- Permanent rule: use model reachability to judge impact and admission scope;
+  do not call a source-level parser witness a simulator artifact when the model
+  is absent from the causal chain.

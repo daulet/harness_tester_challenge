@@ -56,12 +56,16 @@
     simulator-fidelity, and root-cause/duplicate reviews plus final council.
     All mechanisms and dispositions are preserved in
     `BLOCKER_PEELING_THEORY_LOG.md`; the final report is under `reports/`.
-- [ ] Run a persisted, sanitizer-backed NMEA/peripheral mutation-corpus
-  expansion. Promote every new anomalous state to the full direct-Claude
-  admission pipeline.
+- [x] Run a persisted, sanitizer-backed NMEA mutation-corpus expansion.
+  - Completion: 842 checked-in cases regenerate byte-for-byte and pass twice
+    under baseline, ASan, and UBSan after BP-C007 exposed and pinned a missing
+    date-field delimiter check in the experimental repair.
+  - Admission result: BP-C007 received three direct-Claude disproof reviews and
+    final council, then merged into A04. Because it was a new candidate, the
+    no-new-candidate streak remains zero.
 - [ ] Run an independent state-sequence/metamorphic expansion across button,
   UART, I2C, SD, and parser transitions. The goal stopping rule is met only if
-  this and the preceding expansion produce no new candidates.
+  two consecutive expansions produce no new candidates.
 
 ## Q0 - Campaign bootstrap
 
@@ -153,9 +157,10 @@
 - [ ] Add NMEA and peripheral-sequence fuzz targets with a persisted regression
   corpus.
   - Prerequisite: Q2 state machines and Q1 sanitizer targets.
-  - Partial completion: blocker peeling now has 384 deterministic seeded RMC
-    cases and byte-identical replay verification. Sanitizer execution and a
-    separately persisted mutation corpus remain open for the broader Q4 goal.
+  - Partial completion: blocker peeling now has 384 in-process seeded RMC cases
+    plus an 842-case persisted corpus with byte-identical regeneration and clean
+    baseline/ASan/UBSan replay. Broader peripheral state-sequence fuzzing remains
+    open.
   - Completion gate for Q4: bounded deterministic sweeps cover documented
     operating limits, every single harness fault is detected or explicitly
     classified as unobservable, and the fuzz regression corpus is clean under

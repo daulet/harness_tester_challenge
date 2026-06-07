@@ -157,6 +157,29 @@
         "I2C fault diagnostics and SD reinsertion policy are observations unless an external product invariant is found",
         "deferred SD close/sync failure remains outside the simulator boundary"
       ]
+    },
+    {
+      "id": "persisted_sanitizer_corpus_campaign",
+      "board_fixture": "P9_RMC_VALIDATED generated firmware with immutable checked-in corpus replay",
+      "bounds": {
+        "valid_rmc": 128,
+        "invalid_rmc": 576,
+        "post_lock_atomicity": 128,
+        "loop_framing": 10,
+        "total": 842,
+        "seed": 1129467955
+      },
+      "oracle_sources": [
+        "u-blox 8/M8 protocol specification UBX-13003221 RMC structure, status, checksum, time, date, and line terminators",
+        "independent deterministic Python case constructor",
+        "checked-in case-specific expected lock/time/date outcomes"
+      ],
+      "expected": "baseline, AddressSanitizer, and UndefinedBehaviorSanitizer replays match every persisted expected state with no sanitizer diagnostic",
+      "output": "build/blocker_peeling/persisted_corpus_matrix.csv",
+      "limitations": [
+        "the campaign targets repaired RMC parser and loop-framing behavior; broader button, I2C, and SD state-sequence metamorphic coverage is a separate expansion",
+        "host sanitizer success does not replace Teensy-target compilation or hardware traces"
+      ]
     }
   ]
 }
