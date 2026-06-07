@@ -3,7 +3,7 @@
 - Branch: `simulator`.
 - Last completed pass: P8 closed-loop LED electrical feedback and BP-T001
   selected-part color-mapping admission.
-- Current baseline: 93/93 CTest cases passed against
+- Current baseline after the SD fidelity correction: 98/98 CTest cases passed against
   `/opt/homebrew/bin/ngspice`.
 - Sanitizer boundary: ASan A03 and UBSan A05 expected-failure witnesses pass with
   diagnostic matching on Apple Clang 21.
@@ -31,3 +31,7 @@
   known passive-matrix closure and FAILED-status overwrite roots. The bounded
   2,113-scenario campaign completed with zero row, verdict, log, or status
   differentials and wrote `build/blocker_peeling/exposure_matrix.csv`.
+- Peripheral council: post-lock partial RMC mutation was accepted as real by
+  all three direct Claude reviewers but merged into the existing RMC validation
+  root. SD-01 was rejected after target SdFat review exposed byte-granular
+  simulator behavior and an unobservable deferred close/sync failure.

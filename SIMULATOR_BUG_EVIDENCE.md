@@ -1,6 +1,6 @@
 # Simulator-Backed Bug Evidence
 
-Working ledger as of 2026-06-05.
+Working ledger as of 2026-06-07.
 
 This list is intentionally narrower than the full theory log. It contains bugs
 that are backed by the corrected host simulator and a fresh non-interactive
@@ -14,14 +14,15 @@ of the bug thesis.
 
 ## Current count
 
-- 14 bugs passed dedicated simulator evidence tests.
-- 14/14 were accepted by fresh non-interactive Claude review.
-- With ngspice installed, the full simulator suite currently passes 56/56
+- 13 bugs remain accepted after target-stack fidelity review.
+- SD-01 is retained below as a rejected simulator-backed theory.
+- With ngspice installed, the full simulator suite currently passes 98/98
   tests, including the separate second-pass scenario checks in
   `SIMULATOR_SCENARIO_REVIEW.md` and the electrical fixture matrix.
-- The `^bug_` filter contains 16 behavioral tests for these 14 bugs because A03
-  has synthetic and physical-overrun boundary witnesses and A04 has independent
-  status and checksum witnesses. This accepted ledger uses
+- The `^bug_` filter contains 16 behavioral tests for the 13 accepted bugs plus
+  the retained rejected SD-01 witness because A03 has synthetic and
+  physical-overrun boundary witnesses and A04 has independent status and
+  checksum witnesses. This accepted ledger uses
   source-backed A05 instead of A08; A03 and A05 additionally have
   expected-failure sanitizer witnesses.
 
@@ -40,15 +41,19 @@ of the bug thesis.
 | A20 | Harness logical index diverges from expander register-bit index after CBL_19 | `bug_a20_logical_index_gap` | ACCEPT: CBL_20 jumps to raw bit 24 while firmware probes bit 20. |
 | A21 | Status LED pins are never configured as outputs | `bug_a21_leds_never_become_outputs` | ACCEPT: no `pinMode(PIN_LED_*, OUTPUT)` exists in source. |
 | A23 | A held valid test gate reruns and re-logs indefinitely | `bug_a23_held_gate_relogs` | ACCEPT: level-gated loop has no edge detect, latch, or one-shot state. |
-| SD-01 | Short log writes are silently accepted | `bug_sd_partial_log_accepted`, `sd_timing_capacity_and_removal` | ACCEPT: unchanged firmware discards all `print`/`println` byte counts, so an authored full-card condition truncates the record without a storage diagnostic. |
+| SD-01 | SD write failures are silently accepted | `bug_sd_partial_log_accepted`, `sd_timing_capacity_and_removal` | REJECT: the source does discard write counts, but this firmware's small Teensy SdFat writes return full length or zero and can defer the real media error to a `void` close. The former byte-granular simulator witness overstated target fidelity, and the remaining failure requires adverse external media. |
 
 ## Fresh Claude review batches
 
 - A01, A02, A03, A04, A05, A06: all ACCEPT.
 - A07, A09, A17, A19: all ACCEPT.
 - A20, A21, A23: all ACCEPT.
-- SD-01: ACCEPT as a distinct ignored-short-write defect; the exact truncation
-  point is authored, while the unchecked return values are source-portable.
+- SD-01: REJECT after three-role target-stack review. One fidelity reviewer
+  accepted the ignored-return mechanism, while source/spec and duplicate
+  reviewers rejected admission. The coordinator agrees with the rejection:
+  the simulator now models all-or-zero write calls, the P9 repair explicitly
+  disclaims deferred close/sync failure, and the trigger remains conditional
+  on full, removed, or failing media.
 
 The same review accepted checksum-invalid RMC as part of A04's existing
 no-validation root cause. It narrowed CRLF's separate empty parser pass to a
@@ -69,4 +74,4 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-Current result with ngspice installed: 56/56 tests passed.
+Current result with ngspice installed: 98/98 tests passed.

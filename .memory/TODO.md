@@ -17,8 +17,8 @@
   - Completion: generated driver repairs isolate the selected probe output;
     UBSan proves the 64-bit-mask dependency; source-derived logical/raw mapping
     reaches bits 24-43 through an explicitly labeled schematic-ideal fixture;
-    verdict, button-session, and SD short-write controls all have leave-one-out
-    witnesses.
+    verdict, button-session, and SD write-call failure controls all have
+    leave-one-out witnesses.
   - Validation: 89/89 CTests, including full-record and one-byte-short CRLF
     controls, with original firmware, driver, schematic, and PCB hashes
     unchanged.
@@ -46,6 +46,9 @@
   - Scope: NMEA validation/state composition, UART/I2C transaction faults,
     button timing, SD removal/capacity/reboot, and deterministic fuzz
     regression corpora.
+  - Current adjudication: post-lock partial RMC mutation merges into the
+    existing validation root; SD-01 is rejected after correcting the simulator
+    from byte-granular writes to the target's all-or-zero write-call contract.
 - [ ] Run three-role, direct-Claude disproof councils for every candidate and
   produce the accepted, rejected, disputed, exposure-matrix, and final-report
   artifacts from `goal.md`.

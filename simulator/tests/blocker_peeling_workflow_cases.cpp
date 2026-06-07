@@ -348,13 +348,13 @@ bool run_case(const std::string &name) {
   if (name == "button-repaired") return run_button_session(true);
   if (name == "button-counterfactual") return run_button_session(false);
   if (name == "sd-repaired") {
-    return run_sd_write(true, 12, "230394 - 123", true);
+    return run_sd_write(true, 17, "230394 - 123519: ", true);
   }
   if (name == "sd-counterfactual") {
-    return run_sd_write(false, 12, "230394 - 123", true);
+    return run_sd_write(false, 17, "230394 - 123519: ", true);
   }
   if (name == "sd-line-ending-repaired") {
-    return run_sd_write(true, 24, "230394 - 123519: Failed\r", true);
+    return run_sd_write(true, 24, "230394 - 123519: Failed", true);
   }
   if (name == "sd-full-repaired") {
     return run_sd_write(true, 25, "230394 - 123519: Failed\r\n", false);

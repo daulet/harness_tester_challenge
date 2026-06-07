@@ -347,8 +347,13 @@ std::size_t File::write_bytes(const std::string &bytes) {
     return 0;
   }
 
-  auto written = std::min(bytes.size(),
-                          card->config.capacity_bytes - card->used_bytes);
+  const auto remaining_capacity =
+      card->config.capacity_bytes - card->used_bytes;
+  if (bytes.size() > remaining_capacity) {
+    return 0;
+  }
+
+  const auto written = bytes.size();
   bool limited_by_removal = false;
   SimTime removal_time{};
   if (card->config.write_byte_time > SimTime::zero() &&
@@ -359,18 +364,17 @@ std::size_t File::write_bytes(const std::string &bytes) {
         ? 0
         : static_cast<std::uint64_t>((remaining.count() - 1) / byte_time);
     if (before_removal < written) {
-      written = static_cast<std::size_t>(before_removal);
       limited_by_removal = true;
     }
   }
 
   if (limited_by_removal) {
     active_runtime().advance_to(removal_time);
-  } else {
-    active_runtime().advance_by(scaled_duration(
-        written, card->config.write_byte_time, "SD write time"));
+    return 0;
   }
 
+  active_runtime().advance_by(
+      scaled_duration(written, card->config.write_byte_time, "SD write time"));
   card->files[handle_->path].append(bytes.data(), written);
   card->used_bytes += written;
   return written;

@@ -97,9 +97,10 @@ digital transaction model, not a rise-time, arbitration, or solved-voltage model
 
 The SD shim models the firmware-used `FILE_WRITE` create/append path with
 configurable initialization/open/write/close time, finite aggregate capacity,
-card removal/reinsertion, and deterministic short-write return values. Neutral
-defaults remain zero-time and effectively unlimited because the design does not
-specify a card. The model does not yet implement file reads, FAT allocation
+card removal/reinsertion, and deterministic all-or-zero write-call failures,
+matching the target SdFat return contract. Neutral defaults remain zero-time
+and effectively unlimited because the design does not specify a card. The model
+does not yet implement deferred close/sync failure, file reads, FAT allocation
 geometry, wear, power-loss corruption, or measured card latency distributions.
 
 Build and run:

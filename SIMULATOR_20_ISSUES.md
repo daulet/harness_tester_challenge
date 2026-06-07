@@ -224,16 +224,16 @@ it remains outside the numbered selection only to preserve the requested exact
 documented input state `0xFF`; `bug_a06_all_outputs` asserts that pre-state,
 executes `set_output()`, and observes all eight registers transition to `0x00`.
 
-## Additional validated twenty-second product defect
+## Rejected former twenty-second candidate
 
-**SD-01 - short log writes are silently accepted** is source-distinct from the
-requested numbered selection. `log_result()` checks only whether `SD.open()`
-succeeded and discards all six underlying `write_bytes` counts. With a
-deterministic 12-byte card capacity, `bug_sd_partial_log_accepted` runs the
-unchanged firmware and records only `230394 - 123` without a storage error.
-`sd_timing_capacity_and_removal` proves the model returns the actual short count,
-while `firmware_sd_removed_before_open` proves the existing open-failure
-diagnostic still fires when removal precedes the open.
+**SD-01 - SD write failures are silently accepted** remains a true source
+observation but is no longer admitted. Target-stack review found that Teensy
+SdFat write calls return either the requested length or zero, while deferred
+media failure can surface only during `close()`/`sync()` and the public
+`File.close()` API discards that result. The old byte-granular 12-byte witness
+was therefore a simulator-fidelity gap. The corrected simulator retains an
+all-or-zero conditional-failure witness, but the candidate requires full,
+removed, or failing external media and does not increase the submission count.
 
 ## Simulator review repairs now covered
 

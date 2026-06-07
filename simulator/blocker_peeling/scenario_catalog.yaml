@@ -126,8 +126,9 @@
     {
       "id": "sd_partial_record",
       "board_fixture": "source-derived schematic-ideal J3-to-U4 routing",
-      "sd_capacity_bytes": [12, 24, 25],
-      "expected": "body truncation and a one-byte-short CRLF emit a failure diagnostic, while a complete CRLF record does not"
+      "sd_capacity_bytes": [17, 24, 25],
+      "expected": "whole-call result and CRLF write failures emit a diagnostic, while a complete CRLF record does not",
+      "limitation": "Teensy SdFat reports each write call as full length or zero and can defer media failure to close/sync; the void File.close API leaves deferred failure outside this repair's observable boundary"
     }
   ]
 }

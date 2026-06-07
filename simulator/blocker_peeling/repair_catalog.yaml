@@ -398,10 +398,11 @@
       "surface": "firmware",
       "peel": "P9",
       "evidence": [
-        "Arduino File print and println report the number of bytes accepted",
-        "The unchanged source checks only whether open succeeded and silently accepts partial records"
+        "Teensy File print and println propagate an all-or-zero SdFat write count",
+        "The unchanged source checks only whether open succeeded and discards write failure counts"
       ],
-      "unlocks": "Reports a result record that the storage layer accepted only partially",
+      "unlocks": "Reports a result record whose write call failed",
+      "limitation": "Teensy File.close is void and discards the underlying SdFat close/sync result, so this repair cannot prove durable commit or detect deferred close failure",
       "operations": [
         {
           "type": "replace_once",

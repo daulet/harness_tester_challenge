@@ -254,10 +254,10 @@ bool run_nmea_crlf_empty_pass() {
 bool run_sd_partial_log_accepted() {
   auto runtime = make_runtime(expected_harness());
   host_sim::SdCardConfig config;
-  config.capacity_bytes = 12;
+  config.capacity_bytes = 17;
   runtime->configure_sd(config);
   prepare_for_test(*runtime, kValidGprmc);
-  return require(runtime->sd_content("results.txt") == "230394 - 123",
+  return require(runtime->sd_content("results.txt") == "230394 - 123519: ",
                  "SD capacity did not truncate the firmware log") &&
       require(!contains(runtime->serial_output(), "Failed to open log file"),
               "firmware detected a short write it never checks");

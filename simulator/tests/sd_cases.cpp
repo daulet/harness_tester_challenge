@@ -76,10 +76,10 @@ int main() {
     ok &= require(host_sim::SD.begin(BUILTIN_SDCARD),
                   "bounded SD card did not initialize");
     auto file = host_sim::SD.open("capacity.txt", FILE_WRITE);
-    ok &= require(file.print("hello") == 3 && file.print("x") == 0 &&
-                      runtime.sd_content("capacity.txt") == "hel" &&
-                      runtime.sd_used_bytes() == 3,
-                  "SD capacity did not produce a deterministic short write");
+    ok &= require(file.print("hello") == 0 &&
+                      runtime.sd_content("capacity.txt").empty() &&
+                      runtime.sd_used_bytes() == 0,
+                  "SD capacity failure was not all-or-zero");
   }
 
   {
@@ -91,11 +91,11 @@ int main() {
                   "removal SD card did not initialize");
     auto file = host_sim::SD.open("removal.txt", FILE_WRITE);
     runtime.schedule_sd_available(false, 250us);
-    ok &= require(file.print("hello") == 2 && runtime.now() == 250us && file &&
-                      runtime.sd_content("removal.txt") == "he" &&
+    ok &= require(file.print("hello") == 0 && runtime.now() == 250us && file &&
+                      runtime.sd_content("removal.txt").empty() &&
                       file.print("x") == 0 &&
                       !host_sim::SD.open("other.txt", FILE_WRITE),
-                  "SD removal did not interrupt the in-flight append");
+                  "SD removal did not fail the in-flight append");
 
     runtime.set_sd_available(true);
     ok &= require(!host_sim::SD.open("other.txt", FILE_WRITE),

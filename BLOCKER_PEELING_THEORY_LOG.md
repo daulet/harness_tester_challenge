@@ -81,3 +81,53 @@ wording belongs in `BLOCKER_PEELING_ACCEPTED.md`.
 - **Interpretation:** the repaired digital implementation is exhausted within
   these explicit bounds. The result does not validate the source-declared
   harness topology against an external product specification.
+
+## BP-M002 - Post-lock partial RMC mutates one timestamp field
+
+- **Status:** MERGED INTO EXISTING RMC VALIDATION ROOT; not a new count.
+- **Thesis:** `sscanf()` writes directly into global `utc_time` and `date`
+  before `!time_fixed` is evaluated. After a valid lock, a partial void RMC can
+  replace `utc_time`, leave the old `date`, and produce a mixed result-log
+  timestamp.
+- **Causal evidence:** the P04 reproduction in
+  `audit_work/council/deep_firmware_spec_20260606/agents/parser/report.md`
+  establishes a two-frame sequence where the second parse returns one stored
+  assignment and logging reads the mixed globals.
+- **Source/spec reviewer:** ACCEPT mechanism, REJECT separate count. C
+  conversion assignments are committed before a later conversion fails, and
+  the input is a valid-size void RMC, but the accepted validation repair
+  already requires parse-to-temporaries followed by atomic commit.
+- **Simulator-fidelity reviewer:** ACCEPT mechanism, MERGE count. Direct serial
+  injection reaches the real firmware parser and SD path without relying on a
+  GPS-model artifact; the observable impact is date-rollover-gated.
+- **Root-cause/duplicate reviewer:** MERGE. The code site, canonical
+  validate-then-commit fix, and existing pass-2 disposition are shared with
+  finding 4/A04.
+- **Coordinator:** AGREES WITH MERGE. Preserve as a stronger witness showing
+  why a narrow status-only patch is insufficient, but do not count it
+  independently.
+
+## BP-R002 - SD write failures are silently accepted
+
+- **Status:** REJECTED after simulator-fidelity correction.
+- **Thesis:** `log_result()` checks only `SD.open()` and discards all
+  `print()`/`println()` counts, so storage failure can leave a truncated record
+  without a diagnostic.
+- **Initial simulator evidence:** the old capacity model returned a
+  byte-granular prefix and P9 diagnosed the short count while
+  `P9_without_FW_SD_WRITE_CHECKS` remained silent.
+- **Source/spec reviewer:** REJECT. Teensy 1.59 SdFat `FatFile::write()` and
+  `ExFatFile::write()` return the full requested length or zero, never a
+  byte-granular prefix. Small writes can fail later at `close()`/`sync()`, whose
+  result the public `File.close()` API discards.
+- **Simulator-fidelity reviewer:** ACCEPTED the broad ignored-error mechanism
+  but independently noted the byte-granular mismatch and that the production
+  fix would need a different completion signal.
+- **Root-cause/duplicate reviewer:** REJECT. It classified the remaining
+  behavior as conditional external-media handling and related it to prior
+  rejected SD error-handling candidates.
+- **Coordinator:** AGREES WITH REJECTION. The concrete fidelity objection is
+  decisive for the prior witness and P9 repair. The simulator now returns
+  all-or-zero per write call and explicitly leaves deferred close/sync failure
+  unresolved. The conditional source observation remains logged but is not
+  submission-grade.
