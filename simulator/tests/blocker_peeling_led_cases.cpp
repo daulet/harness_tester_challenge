@@ -168,6 +168,27 @@ bool run_repaired() {
   return ok;
 }
 
+bool run_status_persistence(bool repaired) {
+  Workflow workflow;
+  bool ok = source_facts_match(workflow);
+  setup();
+  ok &= acquire_time(workflow);
+  workflow.runtime.set_button_pressed(true);
+  loop();
+  ok &= expect_color(workflow.observe(), host_sim::LedChannel::Red,
+                     "P8 initial FAILED state");
+  const auto log = workflow.runtime.sd_content("results.txt");
+  loop();
+  ok &= expect_color(
+      workflow.observe(),
+      repaired ? host_sim::LedChannel::Red : host_sim::LedChannel::Green,
+      repaired ? "P8 persistent FAILED state"
+               : "P8 status-persistence counterfactual");
+  ok &= require(workflow.runtime.sd_content("results.txt") == log,
+                "P8 held-button idle loop wrote a second result");
+  return ok;
+}
+
 bool run_without_modes() {
   Workflow workflow;
   bool ok = source_facts_match(workflow);
@@ -212,6 +233,10 @@ bool run_case(const std::string &name) {
   if (name == "without-modes") return run_without_modes();
   if (name == "without-power") return run_without_power();
   if (name == "without-mapping") return run_without_mapping();
+  if (name == "status-persistence") return run_status_persistence(true);
+  if (name == "without-status-persistence") {
+    return run_status_persistence(false);
+  }
   throw std::runtime_error("unknown blocker-peeling LED case: " + name);
 }
 

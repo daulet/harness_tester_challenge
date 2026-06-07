@@ -9,6 +9,7 @@
 #include "CY8C9560.h"
 #include "host_simulator/oracle.h"
 #include "host_simulator/runtime.h"
+#include "blocker_peeling_harness_fixture.h"
 
 extern void setup();
 extern void loop();
@@ -92,6 +93,19 @@ std::string probe_bits(const std::string &output, int pin) {
   return bits;
 }
 
+std::uint64_t probe_value(const std::string &output, int pin) {
+  const auto bits = probe_bits(output, pin);
+  std::uint64_t value = 0;
+  for (std::size_t bit = 0; bit < bits.size(); ++bit) {
+    if (bits[bit] == '1') {
+      value |= std::uint64_t{1} << bit;
+    } else if (bits[bit] != '0') {
+      throw std::runtime_error("probe line contains a non-binary value");
+    }
+  }
+  return value;
+}
+
 bool run_probe_directions(bool repaired) {
   auto runtime = make_runtime();
   bool ok = lock_time(*runtime, false);
@@ -168,6 +182,15 @@ host_sim::Harness one_matching_row_harness() {
 bool run_one_row_verdict(bool repaired) {
   const auto harness = one_matching_row_harness();
   const auto observations = host_sim::HarnessOracle::observations(harness);
+  constexpr std::size_t matching_row = 7;
+  constexpr std::uint64_t logical_mask =
+      (std::uint64_t{1} << host_sim::kHarnessPins) - 1;
+  for (std::size_t row = 0; row < host_sim::kHarnessPins; ++row) {
+    EXPECTED_CONNECTIONS[row] =
+        observations[row] ^ (std::uint64_t{1} << ((row + 1) % 40));
+    EXPECTED_CONNECTIONS[row] &= logical_mask;
+  }
+  EXPECTED_CONNECTIONS[matching_row] = observations[matching_row];
   std::size_t matching_rows = 0;
   for (std::size_t row = 0; row < host_sim::kHarnessPins; ++row) {
     if (observations[row] == EXPECTED_CONNECTIONS[row]) {
@@ -187,6 +210,38 @@ bool run_one_row_verdict(bool repaired) {
   ok &= require(contains(output, repaired ? "Harness failed!"
                                          : "Harness passed!"),
                 "P6 one-row verdict did not match the selected counterfactual");
+  return ok;
+}
+
+bool run_matrix_closure(bool repaired) {
+  const auto harness = blocker_peeling_test::declared_harness();
+  const auto sparse = blocker_peeling_test::declared_sparse_rows();
+  const auto closed = host_sim::HarnessOracle::observations(harness);
+  std::size_t changed_rows = 0;
+  std::size_t compiled_mismatches = 0;
+  for (std::size_t row = 0; row < host_sim::kHarnessPins; ++row) {
+    changed_rows += sparse[row] != closed[row];
+    compiled_mismatches += EXPECTED_CONNECTIONS[row] != closed[row];
+  }
+
+  auto runtime = make_runtime(
+      harness, host_sim::HarnessRoutingMode::SchematicIdeal);
+  bool ok = require(changed_rows == 36,
+                    "P6 matrix fixture did not preserve 36 closure changes");
+  ok &= require(compiled_mismatches == (repaired ? 0 : 36),
+                "P6 generated matrix did not match the selected closure state");
+  ok &= lock_time(*runtime, false);
+  runtime->set_button_pressed(false);
+  loop();
+
+  for (std::size_t row = 0; row < host_sim::kHarnessPins; ++row) {
+    ok &= require(probe_value(runtime->serial_output(),
+                              static_cast<int>(row)) == closed[row],
+                  "P6 firmware observation disagreed with passive closure");
+  }
+  ok &= require(contains(runtime->serial_output(),
+                         repaired ? "Harness passed!" : "Harness failed!"),
+                "P6 matrix closure verdict did not match the counterfactual");
   return ok;
 }
 
@@ -286,6 +341,10 @@ bool run_case(const std::string &name) {
     return run_one_row_verdict(false);
   }
   if (name == "verdict-all-repaired") return run_all_rows_verdict();
+  if (name == "matrix-closure-repaired") return run_matrix_closure(true);
+  if (name == "matrix-closure-counterfactual") {
+    return run_matrix_closure(false);
+  }
   if (name == "button-repaired") return run_button_session(true);
   if (name == "button-counterfactual") return run_button_session(false);
   if (name == "sd-repaired") {

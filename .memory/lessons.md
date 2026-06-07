@@ -1,5 +1,29 @@
 # Simulator realism lessons
 
+## 2026-06-07 - Campaign baselines must peel oracle-data defects too
+
+- Symptom: P9 repaired probe mechanics and all-row aggregation, but the
+  source-declared harness still failed as a known-good baseline.
+- Root cause: `EXPECTED_CONNECTIONS` stores sparse edges while the measurement
+  observes passive connected-component closure; 36 of 40 rows differ.
+- Source evidence: the P6 matrix leave-one-out witness and the six components
+  derived from the source edge graph.
+- Permanent rule: before broad differential campaigns, repair known defects in
+  expected data as well as control flow, and preserve a leave-one-out witness
+  proving why the repair is required.
+
+## 2026-06-07 - Shared topology ancestry limits what a clean campaign proves
+
+- Symptom: 2,113 harness scenarios produced no firmware/oracle differential.
+- Root cause: this is expected after the repaired implementation agrees with
+  the component oracle; it does not prove that the repository's declared
+  external harness graph matches an unavailable product specification.
+- Source evidence: `build/blocker_peeling/exposure_matrix.csv` and the explicit
+  `source_independence` column.
+- Permanent rule: report implementation differentials separately from
+  physical-specification truth, and never promote a clean shared-ancestry
+  campaign into evidence that the underlying product topology is correct.
+
 ## 2026-06-07 - Net agreement does not validate selected-part semantics
 
 - Symptom: the schematic and PCB consistently connected `LED_B` to D3 pad 2

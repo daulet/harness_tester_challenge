@@ -84,6 +84,28 @@
       "expected": "an all-row oracle match passes and an exactly-one-row match fails"
     },
     {
+      "id": "expected_matrix_passive_closure",
+      "board_fixture": "source-declared harness edges with schematic-ideal J3-to-U4 routing",
+      "expected": "the passive component closure changes exactly 36 rows; the declared harness fails with sparse rows and passes with closed rows",
+      "limitation": "the repository contains no independent external-harness specification, so closure preserves the source-declared edge graph rather than proving that graph is the intended product harness"
+    },
+    {
+      "id": "harness_exhaustive_campaign",
+      "board_fixture": "P9 generated firmware with schematic-ideal J3-to-U4 routing",
+      "bounds": {
+        "declared_baseline": 1,
+        "single_channel_opens": 40,
+        "two_channel_opens": 780,
+        "all_pair_additions": 780,
+        "seeded_mixed_open_short": 256,
+        "synthetic_three_pin_components": 128,
+        "synthetic_four_pin_components": 128,
+        "seed": 3237998146
+      },
+      "expected": "firmware rows, verdict, log, and persistent status agree with the independent component oracle for every bounded scenario",
+      "output": "build/blocker_peeling/exposure_matrix.csv"
+    },
+    {
       "id": "button_press_hold_release",
       "board_fixture": "source-derived schematic-ideal J3-to-U4 routing",
       "sequence": ["release", "press", "hold", "release", "press"],
@@ -94,6 +116,12 @@
       "board_fixture": "KiCad-derived D3 connectivity plus generated current-limited overlay",
       "states": ["BUSY", "GOOD", "FAILED"],
       "expected": "ngspice current selects blue, green, and red respectively only when firmware modes, power path, resistors, and color mapping are all repaired"
+    },
+    {
+      "id": "led_failed_status_persistence",
+      "board_fixture": "KiCad-derived D3 connectivity plus generated current-limited overlay",
+      "sequence": ["failed result", "held-button idle loop"],
+      "expected": "FAILED remains physical red until a new test starts; the leave-one-out variant changes to GOOD without a new result"
     },
     {
       "id": "sd_partial_record",

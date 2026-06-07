@@ -230,6 +230,66 @@
       ]
     },
     {
+      "id": "FW_EXPECTED_MATRIX_CLOSURE",
+      "artifact": "firmware",
+      "surface": "firmware",
+      "peel": "P6",
+      "evidence": [
+        "Passive harness probing observes the full connected component minus the driven pin",
+        "The symmetric EXPECTED_CONNECTIONS edge graph forms six components",
+        "Thirty-six of forty source rows differ from the passive transitive closure"
+      ],
+      "unlocks": "Allows the harness encoded by the source edge graph to satisfy its own per-row electrical observations",
+      "operations": [
+        {
+          "type": "replace_initializer",
+          "anchor": "uint64_t EXPECTED_CONNECTIONS[NUM_HARNESS_PINS] = {",
+          "rows": [
+            "0b1000000000000100000000000010000000000000",
+            "0b0100001000000000100000010000000001000000",
+            "0b0011110101101011010000101101011010111000",
+            "0b0011110101101011010000101101011010110100",
+            "0b0011110101101011010000101101011010101100",
+            "0b0011110101101011010000101101011010011100",
+            "0b0100001000000000100000010000000000000010",
+            "0b0011110101101011010000101101011000111100",
+            "0b0000000010000000000000000000000000000000",
+            "0b0011110101101011010000101101010010111100",
+            "0b0011110101101011010000101101001010111100",
+            "0b0000000000010000000110000000000000000000",
+            "0b0011110101101011010000101100011010111100",
+            "0b1000000000000100000000000000000000000001",
+            "0b0011110101101011010000101001011010111100",
+            "0b0011110101101011010000100101011010111100",
+            "0b0100001000000000100000000000000001000010",
+            "0b0011110101101011010000001101011010111100",
+            "0b0000000000000000001000000000000000000000",
+            "0b0000000000010000000100000000100000000000",
+            "0b0000000000010000000010000000100000000000",
+            "0b0000000000000000000001000000000000000000",
+            "0b0011110101101011000000101101011010111100",
+            "0b0100001000000000000000010000000001000010",
+            "0b0011110101101010010000101101011010111100",
+            "0b0011110101101001010000101101011010111100",
+            "0b1000000000000000000000000010000000000001",
+            "0b0011110101100011010000101101011010111100",
+            "0b0000000000000000000110000000100000000000",
+            "0b0011110101001011010000101101011010111100",
+            "0b0011110100101011010000101101011010111100",
+            "0b0000000000000000000000000000000100000000",
+            "0b0011110001101011010000101101011010111100",
+            "0b0100000000000000100000010000000001000010",
+            "0b0011100101101011010000101101011010111100",
+            "0b0011010101101011010000101101011010111100",
+            "0b0010110101101011010000101101011010111100",
+            "0b0001110101101011010000101101011010111100",
+            "0b0000001000000000100000010000000001000010",
+            "0b0000000000000100000000000010000000000001"
+          ]
+        }
+      ]
+    },
+    {
       "id": "FW_BUTTON_SESSION_EDGE",
       "artifact": "firmware",
       "surface": "firmware",
@@ -273,6 +333,25 @@
           "type": "replace_once",
           "old": "  // GPIO\n  set_status(BUSY);\n  pinMode(PIN_BTN_TEST, INPUT_PULLUP);\n",
           "new": "  // GPIO\n  pinMode(PIN_LED_R, OUTPUT);\n  pinMode(PIN_LED_G, OUTPUT);\n  pinMode(PIN_LED_B, OUTPUT);\n  set_status(BUSY);\n  pinMode(PIN_BTN_TEST, INPUT_PULLUP);\n"
+        }
+      ]
+    },
+    {
+      "id": "FW_RESULT_STATUS_PERSISTENCE",
+      "artifact": "firmware",
+      "surface": "firmware",
+      "peel": "P8",
+      "evidence": [
+        "A failed harness sets FAILED at the end of the test",
+        "The next loop unconditionally sets GOOD before the button-session latch returns",
+        "No new harness result exists to justify replacing FAILED"
+      ],
+      "unlocks": "Keeps the most recent pass/fail status visible until a new test starts",
+      "operations": [
+        {
+          "type": "replace_once",
+          "old": "  if (!time_fixed) return;\n  set_status(GOOD);\n\n",
+          "new": "  if (!time_fixed) return;\n\n"
         }
       ]
     },

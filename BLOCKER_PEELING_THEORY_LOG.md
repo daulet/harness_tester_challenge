@@ -49,3 +49,35 @@ wording belongs in `BLOCKER_PEELING_ACCEPTED.md`.
 - **Residual caveat:** a deliberately non-standard footprint pad-numbering
   convention could overturn the physical-pad inference, but no source evidence
   supports such a convention and the footprint uses ordinary numbered pads.
+
+## BP-D001 - Expected harness rows omit passive transitive closure
+
+- **Status:** DUPLICATE OF EXISTING ACCEPTED ROOT; not a new submission count.
+- **Existing root:** `FINAL_FINDINGS_REAUDITED.md` finding 17.
+- **Thesis:** the symmetric sparse edge graph in `EXPECTED_CONNECTIONS` forms
+  six passive components, but 36 of 40 rows omit members reachable through
+  another declared edge.
+- **New blocker-peeling evidence:** `blocker_peeling_p6_matrix_closure` proves
+  that the harness built from the declared edges emits the component closure
+  and passes only after `FW_EXPECTED_MATRIX_CLOSURE`.
+  `blocker_peeling_p6_without_matrix_closure` retains the sparse rows and fails
+  on the same physical harness.
+- **Review outcome:** the direct adversarial campaign-design review accepted
+  the closure mechanism and required the source-independence limitation below.
+- **Limitation:** the repository provides no authoritative external-harness
+  specification. The repair preserves the topology implied by the firmware's
+  own edge graph; it proves internal electrical inconsistency, not that the
+  declared graph is the intended product harness.
+
+## Campaign C001 - Bounded digital harness topology sweep
+
+- **Status:** COMPLETE; NO NEW CANDIDATE.
+- **Coverage:** 2,113 scenarios: one declared baseline, 40 single opens, 780
+  double opens, 780 pair additions, 256 seeded mixed open/short cases, 128
+  synthetic three-pin components, and 128 synthetic four-pin components.
+- **Result:** zero firmware-row, verdict, log, immediate-status, or
+  post-idle-status differentials.
+- **Artifact:** `build/blocker_peeling/exposure_matrix.csv`.
+- **Interpretation:** the repaired digital implementation is exhausted within
+  these explicit bounds. The result does not validate the source-declared
+  harness topology against an external product specification.

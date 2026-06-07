@@ -7,8 +7,8 @@
   `/opt/homebrew/bin/ngspice`.
 - Sanitizer boundary: ASan A03 and UBSan A05 expected-failure witnesses pass with
   diagnostic matching on Apple Clang 21.
-- Active item: run the full generated campaigns, delta minimization, and
-  candidate councils.
+- Active item: run peripheral/event-sequence campaigns, minimize mismatches,
+  and send each candidate through direct-Claude councils.
 - Known local-only artifact: untracked `build/`.
 - Available boundaries: Apple Clang 21, CMake 4.2.3, clang-format, ngspice.
 - Missing boundary at bootstrap: `kicad-cli` is not installed or on `PATH`.
@@ -27,3 +27,7 @@
   names, rail-endpoint validation, local shadowing, and the open-anode
   counterfactual were improved; the focused follow-up review returned PASS and
   the final full run remained 93/93.
+- Digital harness campaign: the generated P9 path now also peels the already
+  known passive-matrix closure and FAILED-status overwrite roots. The bounded
+  2,113-scenario campaign completed with zero row, verdict, log, or status
+  differentials and wrote `build/blocker_peeling/exposure_matrix.csv`.

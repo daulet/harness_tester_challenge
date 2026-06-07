@@ -79,6 +79,31 @@ def replace_after(source, operation, newline):
     return source[:match] + new + source[match + len(old) :]
 
 
+def replace_initializer(source, operation, newline):
+    anchor = adapt_newlines(operation["anchor"], newline)
+    matches = []
+    offset = source.find(anchor)
+    while offset >= 0:
+        matches.append(offset)
+        offset = source.find(anchor, offset + len(anchor))
+    if len(matches) != 1:
+        raise ValueError(
+            f"replace_initializer expected one anchor, found {len(matches)}: "
+            f"{operation['anchor']!r}"
+        )
+
+    start = matches[0]
+    end = source.find(adapt_newlines("};", newline), start + len(anchor))
+    if end < 0:
+        raise ValueError(
+            f"replace_initializer terminator not found: {operation['anchor']!r}"
+        )
+    end += len("};")
+    rows = "".join(f"  {row}," + newline for row in operation["rows"])
+    replacement = anchor + newline + rows + "};"
+    return source[:start] + replacement + source[end:]
+
+
 def apply_repair(source, repair):
     newline = "\r\n" if "\r\n" in source else "\n"
     for operation in repair["operations"]:
@@ -86,6 +111,8 @@ def apply_repair(source, repair):
             source = replace_once(source, operation, newline)
         elif operation["type"] == "replace_after":
             source = replace_after(source, operation, newline)
+        elif operation["type"] == "replace_initializer":
+            source = replace_initializer(source, operation, newline)
         else:
             raise ValueError(f"unknown operation type: {operation['type']}")
     return source

@@ -31,9 +31,21 @@
     red/green/blue currents, while leave-one-out firmware-mode, power/resistor,
     and color-mapping variants each expose their distinct failure. Full baseline
     is 93/93 CTests.
-- [ ] **Next:** add the full generated harness, peripheral, and sequence
-  campaigns plus delta minimization.
-  - Prerequisite: P4-P9 and Q3 closed-loop all-channel behavior.
+- [x] **Done:** add the bounded generated digital-harness campaign and exposure
+  matrix.
+  - Completion: the P9 batch runner executes 2,113 scenarios covering the
+    declared baseline, all 40 single opens, all 780 double opens, all 780 pair
+    additions, 256 seeded mixed open/short cases, and 128 each of synthetic
+    three- and four-pin components.
+  - Validation: firmware rows, verdict, result log, immediate status, and
+    held-button idle status agree with the independent component oracle in
+    every scenario; `build/blocker_peeling/exposure_matrix.csv` contains zero
+    differentials.
+- [ ] **Next:** add peripheral and event-sequence campaigns plus delta
+  minimization.
+  - Scope: NMEA validation/state composition, UART/I2C transaction faults,
+    button timing, SD removal/capacity/reboot, and deterministic fuzz
+    regression corpora.
 - [ ] Run three-role, direct-Claude disproof councils for every candidate and
   produce the accepted, rejected, disputed, exposure-matrix, and final-report
   artifacts from `goal.md`.

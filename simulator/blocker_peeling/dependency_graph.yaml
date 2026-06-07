@@ -72,9 +72,10 @@
         "DRIVER_PROBE_DIRECTIONS",
         "FW_64BIT_MASKS",
         "FW_HARNESS_MAPPING",
-        "FW_ALL_ROWS_VERDICT"
+        "FW_ALL_ROWS_VERDICT",
+        "FW_EXPECTED_MATRIX_CLOSURE"
       ],
-      "invariant": "A harness passes only when every oracle row matches and fails when only one row matches."
+      "invariant": "A passive harness encoded by the source edge graph can match every transitively closed row, and one wrong row fails the verdict."
     },
     {
       "id": "P7",
@@ -89,6 +90,7 @@
         "FW_64BIT_MASKS",
         "FW_HARNESS_MAPPING",
         "FW_ALL_ROWS_VERDICT",
+        "FW_EXPECTED_MATRIX_CLOSURE",
         "FW_BUTTON_SESSION_EDGE"
       ],
       "invariant": "Each active-low press runs one complete session, a held press does not repeat, and release rearms the next press."
@@ -106,8 +108,10 @@
         "FW_64BIT_MASKS",
         "FW_HARNESS_MAPPING",
         "FW_ALL_ROWS_VERDICT",
+        "FW_EXPECTED_MATRIX_CLOSURE",
         "FW_BUTTON_SESSION_EDGE",
         "FW_LED_OUTPUT_MODES",
+        "FW_RESULT_STATUS_PERSISTENCE",
         "BOARD_LED_POWER_AND_RESISTORS",
         "BOARD_LED_COLOR_MAPPING"
       ],
@@ -126,8 +130,10 @@
         "FW_64BIT_MASKS",
         "FW_HARNESS_MAPPING",
         "FW_ALL_ROWS_VERDICT",
+        "FW_EXPECTED_MATRIX_CLOSURE",
         "FW_BUTTON_SESSION_EDGE",
         "FW_LED_OUTPUT_MODES",
+        "FW_RESULT_STATUS_PERSISTENCE",
         "BOARD_LED_POWER_AND_RESISTORS",
         "BOARD_LED_COLOR_MAPPING",
         "FW_SD_WRITE_CHECKS"
@@ -299,9 +305,13 @@
         "DRIVER_PROBE_DIRECTIONS",
         "FW_64BIT_MASKS",
         "FW_HARNESS_MAPPING",
-        "FW_ALL_ROWS_VERDICT"
+        "FW_ALL_ROWS_VERDICT",
+        "FW_EXPECTED_MATRIX_CLOSURE"
       ],
-      "scenario_ids": ["verdict_all_rows"]
+      "scenario_ids": [
+        "verdict_all_rows",
+        "expected_matrix_passive_closure"
+      ]
     },
     {
       "id": "P6_without_FW_ALL_ROWS_VERDICT",
@@ -313,10 +323,27 @@
         "FW_NMEA_BOUNDS",
         "DRIVER_PROBE_DIRECTIONS",
         "FW_64BIT_MASKS",
-        "FW_HARNESS_MAPPING"
+        "FW_HARNESS_MAPPING",
+        "FW_EXPECTED_MATRIX_CLOSURE"
       ],
       "counterfactual_for": "FW_ALL_ROWS_VERDICT",
       "scenario_ids": ["verdict_all_rows"]
+    },
+    {
+      "id": "P6_without_FW_EXPECTED_MATRIX_CLOSURE",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS",
+        "FW_64BIT_MASKS",
+        "FW_HARNESS_MAPPING",
+        "FW_ALL_ROWS_VERDICT"
+      ],
+      "counterfactual_for": "FW_EXPECTED_MATRIX_CLOSURE",
+      "scenario_ids": ["expected_matrix_passive_closure"]
     },
     {
       "id": "P7",
@@ -330,6 +357,7 @@
         "FW_64BIT_MASKS",
         "FW_HARNESS_MAPPING",
         "FW_ALL_ROWS_VERDICT",
+        "FW_EXPECTED_MATRIX_CLOSURE",
         "FW_BUTTON_SESSION_EDGE"
       ],
       "scenario_ids": ["button_press_hold_release"]
@@ -345,7 +373,8 @@
         "DRIVER_PROBE_DIRECTIONS",
         "FW_64BIT_MASKS",
         "FW_HARNESS_MAPPING",
-        "FW_ALL_ROWS_VERDICT"
+        "FW_ALL_ROWS_VERDICT",
+        "FW_EXPECTED_MATRIX_CLOSURE"
       ],
       "counterfactual_for": "FW_BUTTON_SESSION_EDGE",
       "scenario_ids": ["button_press_hold_release"]
@@ -362,12 +391,17 @@
         "FW_64BIT_MASKS",
         "FW_HARNESS_MAPPING",
         "FW_ALL_ROWS_VERDICT",
+        "FW_EXPECTED_MATRIX_CLOSURE",
         "FW_BUTTON_SESSION_EDGE",
         "FW_LED_OUTPUT_MODES",
+        "FW_RESULT_STATUS_PERSISTENCE",
         "BOARD_LED_POWER_AND_RESISTORS",
         "BOARD_LED_COLOR_MAPPING"
       ],
-      "scenario_ids": ["led_status_closed_loop"]
+      "scenario_ids": [
+        "led_status_closed_loop",
+        "led_failed_status_persistence"
+      ]
     },
     {
       "id": "P8_without_FW_LED_OUTPUT_MODES",
@@ -381,7 +415,9 @@
         "FW_64BIT_MASKS",
         "FW_HARNESS_MAPPING",
         "FW_ALL_ROWS_VERDICT",
+        "FW_EXPECTED_MATRIX_CLOSURE",
         "FW_BUTTON_SESSION_EDGE",
+        "FW_RESULT_STATUS_PERSISTENCE",
         "BOARD_LED_POWER_AND_RESISTORS",
         "BOARD_LED_COLOR_MAPPING"
       ],
@@ -400,8 +436,10 @@
         "FW_64BIT_MASKS",
         "FW_HARNESS_MAPPING",
         "FW_ALL_ROWS_VERDICT",
+        "FW_EXPECTED_MATRIX_CLOSURE",
         "FW_BUTTON_SESSION_EDGE",
         "FW_LED_OUTPUT_MODES",
+        "FW_RESULT_STATUS_PERSISTENCE",
         "BOARD_LED_COLOR_MAPPING"
       ],
       "counterfactual_for": "BOARD_LED_POWER_AND_RESISTORS",
@@ -419,12 +457,35 @@
         "FW_64BIT_MASKS",
         "FW_HARNESS_MAPPING",
         "FW_ALL_ROWS_VERDICT",
+        "FW_EXPECTED_MATRIX_CLOSURE",
         "FW_BUTTON_SESSION_EDGE",
         "FW_LED_OUTPUT_MODES",
+        "FW_RESULT_STATUS_PERSISTENCE",
         "BOARD_LED_POWER_AND_RESISTORS"
       ],
       "counterfactual_for": "BOARD_LED_COLOR_MAPPING",
       "scenario_ids": ["led_status_closed_loop"]
+    },
+    {
+      "id": "P8_without_FW_RESULT_STATUS_PERSISTENCE",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS",
+        "FW_64BIT_MASKS",
+        "FW_HARNESS_MAPPING",
+        "FW_ALL_ROWS_VERDICT",
+        "FW_EXPECTED_MATRIX_CLOSURE",
+        "FW_BUTTON_SESSION_EDGE",
+        "FW_LED_OUTPUT_MODES",
+        "BOARD_LED_POWER_AND_RESISTORS",
+        "BOARD_LED_COLOR_MAPPING"
+      ],
+      "counterfactual_for": "FW_RESULT_STATUS_PERSISTENCE",
+      "scenario_ids": ["led_failed_status_persistence"]
     },
     {
       "id": "P9",
@@ -438,8 +499,10 @@
         "FW_64BIT_MASKS",
         "FW_HARNESS_MAPPING",
         "FW_ALL_ROWS_VERDICT",
+        "FW_EXPECTED_MATRIX_CLOSURE",
         "FW_BUTTON_SESSION_EDGE",
         "FW_LED_OUTPUT_MODES",
+        "FW_RESULT_STATUS_PERSISTENCE",
         "BOARD_LED_POWER_AND_RESISTORS",
         "BOARD_LED_COLOR_MAPPING",
         "FW_SD_WRITE_CHECKS"
@@ -458,8 +521,10 @@
         "FW_64BIT_MASKS",
         "FW_HARNESS_MAPPING",
         "FW_ALL_ROWS_VERDICT",
+        "FW_EXPECTED_MATRIX_CLOSURE",
         "FW_BUTTON_SESSION_EDGE",
         "FW_LED_OUTPUT_MODES",
+        "FW_RESULT_STATUS_PERSISTENCE",
         "BOARD_LED_POWER_AND_RESISTORS",
         "BOARD_LED_COLOR_MAPPING"
       ],

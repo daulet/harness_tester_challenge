@@ -103,12 +103,14 @@ set(BLOCKER_PEELING_VARIANTS
   P5_without_FW_HARNESS_MAPPING
   P6
   P6_without_FW_ALL_ROWS_VERDICT
+  P6_without_FW_EXPECTED_MATRIX_CLOSURE
   P7
   P7_without_FW_BUTTON_SESSION_EDGE
   P8
   P8_without_FW_LED_OUTPUT_MODES
   P8_without_BOARD_LED_POWER_AND_RESISTORS
   P8_without_BOARD_LED_COLOR_MAPPING
+  P8_without_FW_RESULT_STATUS_PERSISTENCE
   P9
   P9_without_FW_SD_WRITE_CHECKS
 )
@@ -238,12 +240,44 @@ add_blocker_peeling_workflow_case(
 add_blocker_peeling_workflow_case(blocker_p6 P6)
 add_blocker_peeling_workflow_case(
   blocker_p6_without_verdict P6_without_FW_ALL_ROWS_VERDICT)
+add_blocker_peeling_workflow_case(
+  blocker_p6_without_matrix P6_without_FW_EXPECTED_MATRIX_CLOSURE)
 add_blocker_peeling_workflow_case(blocker_p7 P7)
 add_blocker_peeling_workflow_case(
   blocker_p7_without_button P7_without_FW_BUTTON_SESSION_EDGE)
 add_blocker_peeling_workflow_case(blocker_p9 P9)
 add_blocker_peeling_workflow_case(
   blocker_p9_without_sd_checks P9_without_FW_SD_WRITE_CHECKS)
+
+set(blocker_p9_campaign_firmware
+  "${BLOCKER_PEELING_OUTPUT_DIR}/variants/P9/firmware/firmware.ino"
+)
+set(blocker_p9_campaign_driver
+  "${BLOCKER_PEELING_OUTPUT_DIR}/variants/P9/firmware/CY8C9560.cpp"
+)
+set_source_files_properties(${blocker_p9_campaign_firmware} PROPERTIES
+  GENERATED TRUE
+  LANGUAGE CXX
+  COMPILE_OPTIONS "-x;c++"
+)
+set_source_files_properties(${blocker_p9_campaign_driver}
+  PROPERTIES GENERATED TRUE)
+add_executable(blocker_p9_campaign
+  simulator/tests/blocker_peeling_campaign.cpp
+  ${blocker_p9_campaign_firmware}
+  ${blocker_p9_campaign_driver}
+)
+add_dependencies(blocker_p9_campaign generate_blocker_peeling_variants)
+target_link_libraries(blocker_p9_campaign PRIVATE host_simulator)
+target_compile_definitions(blocker_p9_campaign PRIVATE
+  HOST_SIM_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
+  BLOCKER_VARIANT_DIR="${BLOCKER_PEELING_OUTPUT_DIR}/variants/P9"
+)
+target_compile_options(blocker_p9_campaign PRIVATE
+  -Wall
+  -Wextra
+  -Wpedantic
+)
 
 function(add_blocker_peeling_led_case target variant)
   set(firmware_source
@@ -478,6 +512,8 @@ add_blocker_peeling_led_case(
   blocker_p8_without_power P8_without_BOARD_LED_POWER_AND_RESISTORS)
 add_blocker_peeling_led_case(
   blocker_p8_without_mapping P8_without_BOARD_LED_COLOR_MAPPING)
+add_blocker_peeling_led_case(
+  blocker_p8_without_status P8_without_FW_RESULT_STATUS_PERSISTENCE)
 
 enable_testing()
 add_test(NAME pcb_source_parity COMMAND board_model_cases)
@@ -546,6 +582,10 @@ add_test(NAME blocker_peeling_p6_without_verdict
   COMMAND blocker_p6_without_verdict verdict-one-counterfactual)
 add_test(NAME blocker_peeling_p6_without_verdict_accepts_all_rows
   COMMAND blocker_p6_without_verdict verdict-all-repaired)
+add_test(NAME blocker_peeling_p6_matrix_closure
+  COMMAND blocker_p6 matrix-closure-repaired)
+add_test(NAME blocker_peeling_p6_without_matrix_closure
+  COMMAND blocker_p6_without_matrix matrix-closure-counterfactual)
 add_test(NAME blocker_peeling_p7
   COMMAND blocker_p7 button-repaired)
 add_test(NAME blocker_peeling_p7_without_button
@@ -565,6 +605,14 @@ add_test(NAME blocker_peeling_p8_without_mapping
   COMMAND blocker_p8_without_mapping without-mapping)
 set_tests_properties(blocker_peeling_p8_without_mapping
   PROPERTIES SKIP_RETURN_CODE 77)
+add_test(NAME blocker_peeling_p8_status_persistence
+  COMMAND blocker_p8 status-persistence)
+set_tests_properties(blocker_peeling_p8_status_persistence
+  PROPERTIES SKIP_RETURN_CODE 77)
+add_test(NAME blocker_peeling_p8_without_status_persistence
+  COMMAND blocker_p8_without_status without-status-persistence)
+set_tests_properties(blocker_peeling_p8_without_status_persistence
+  PROPERTIES SKIP_RETURN_CODE 77)
 add_test(NAME blocker_peeling_p9
   COMMAND blocker_p9 sd-repaired)
 add_test(NAME blocker_peeling_p9_line_ending_short
@@ -573,6 +621,9 @@ add_test(NAME blocker_peeling_p9_full_record
   COMMAND blocker_p9 sd-full-repaired)
 add_test(NAME blocker_peeling_p9_without_sd_checks
   COMMAND blocker_p9_without_sd_checks sd-counterfactual)
+add_test(NAME blocker_peeling_harness_campaign
+  COMMAND blocker_p9_campaign
+    "${BLOCKER_PEELING_OUTPUT_DIR}/exposure_matrix.csv")
 add_test(NAME uart_timing_and_topology COMMAND uart_cases)
 add_test(NAME button_and_reset_timing COMMAND timing_cases)
 add_test(NAME i2c_timing_and_faults COMMAND i2c_cases)
