@@ -6,9 +6,9 @@
   `/opt/homebrew/bin/ngspice`.
 - Sanitizer boundary: ASan A03 and UBSan A05 expected-failure witnesses pass with
   diagnostic matching on Apple Clang 21.
-- Active blocker-peeling item: final exact-diff review and stopping-rule audit.
-  C004 and C005 each produced no candidate, bringing the consecutive
-  no-new-candidate streak to two.
+- Active blocker-peeling item: none. C004 and C005 each produced no candidate,
+  bringing the consecutive no-new-candidate streak to two; the stopping rule
+  and final exact-diff review are complete.
 - Known local-only artifact: untracked `build/`.
 - Available boundaries: Apple Clang 21, CMake 4.2.3, clang-format, ngspice.
 - Missing boundary at bootstrap: `kicad-cli` is not installed or on `PATH`.
@@ -50,3 +50,9 @@
   relations plus six expected-differential controls. Both replay byte-for-byte
   with zero unexplained differential and zero error; their seed-independent
   descriptor vectors differ and the two-expansion stopping streak is complete.
+- Final C004/C005 gate: three fresh direct non-interactive Opus/xhigh reviews
+  of the exact staged patch returned no blocker, including the final council.
+  The original firmware retains its accepted 64-byte buffer defect; cumulative
+  variant `P9_RMC_VALIDATED` includes `FW_NMEA_BOUNDS` and was independently
+  verified to define `char nmea_buf[128]`, matching the campaign declaration,
+  before commit `03f25ad`.

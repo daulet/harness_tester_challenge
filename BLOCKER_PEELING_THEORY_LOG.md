@@ -380,3 +380,16 @@ wording belongs in `BLOCKER_PEELING_ACCEPTED.md`.
   relation now uses a checksum-invalid status-`A` sentence, removing navigation
   status policy from the oracle. The SD relation also requires strictly
   increased microsecond time, adopting the two non-blocking recommendations.
+
+### C004/C005 final exact-diff gate
+
+- **Generic commit reviewer:** PASS; no critical or blocking issue.
+- **Metamorphic-oracle reviewer:** PASS; no blocker remains across invariants,
+  controls, anti-vacuity checks, deterministic replay, or descriptor diversity.
+- **Final council:** PASS; the executable evidence supports the two-expansion
+  stopping conclusion under the literal deterministic-seed rule.
+- **Coordinator:** AGREES. The only repeated source-dependent caveat was exact
+  `nmea_buf` size parity. The original firmware correctly remains at 64 bytes
+  for the accepted A03 witness, while cumulative variant `P9_RMC_VALIDATED`
+  includes `FW_NMEA_BOUNDS` and defines `char nmea_buf[128]`, matching the
+  campaign declaration. The exact reviewed patch is commit `03f25ad`.
