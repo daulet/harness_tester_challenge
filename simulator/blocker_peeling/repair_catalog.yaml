@@ -122,12 +122,36 @@
         {
           "type": "replace_once",
           "old": "char nmea_buf[64];\n",
-          "new": "char nmea_buf[128];\n"
+          "new": "char nmea_buf[128];\nbool nmea_discarding = false;\n"
         },
         {
           "type": "replace_once",
           "old": "    nmea_buf[nmea_idx++] = UBX_SERIAL.read();\n",
-          "new": "    const char next = UBX_SERIAL.read();\n    if (nmea_idx >= static_cast<int>(sizeof(nmea_buf) - 1)) {\n      nmea_idx = 0;\n    }\n    nmea_buf[nmea_idx++] = next;\n"
+          "new": "    const char next = UBX_SERIAL.read();\n    if (nmea_discarding) {\n      if (next == '\\n' || next == '\\r') {\n        nmea_discarding = false;\n        nmea_idx = 0;\n      }\n      break;\n    }\n    if (nmea_idx >= static_cast<int>(sizeof(nmea_buf) - 1)) {\n      nmea_idx = 0;\n      nmea_discarding = true;\n      break;\n    }\n    nmea_buf[nmea_idx++] = next;\n"
+        }
+      ]
+    },
+    {
+      "id": "FW_RMC_VALIDATE_ATOMIC",
+      "artifact": "firmware",
+      "surface": "firmware",
+      "peel": "campaign",
+      "evidence": [
+        "u-blox 8/M8 protocol specification UBX-13003221 defines the RMC status, UTC time, date, checksum, and CRLF fields",
+        "firmware/firmware.ino discards status with %*c, ignores checksum and ranges, and writes sscanf conversions directly into persistent globals",
+        "BP-M002 proves a failed post-lock conversion can compose a new time with an old date"
+      ],
+      "unlocks": "Allows event-sequence campaigns to proceed past the accepted RMC semantic-validation root while preserving an exact leave-one-repair-out control",
+      "operations": [
+        {
+          "type": "replace_once",
+          "old": "void process_nmea(char *buf, int len) {\n  buf[len] = 0;\n  if (strncmp(buf, \"$GPRMC\", 6) == 0 ||\n      strncmp(buf, \"$GNRMC\", 6) == 0) {\n    if (sscanf(buf + 6, \",%10[^,],%*c,%*f,%*c,%*f,%*c,%*f,%*f,%6[^,]\", utc_time, date) == 2 && !time_fixed) {\n      DBG_SERIAL.println(\"Time received. Ready to test some harnesses!\");\n      set_status(GOOD);\n      time_fixed = true;\n    } else if (!time_fixed) {\n      DBG_SERIAL.println(\"Failed to parse $GPRMC\");\n    }\n  }\n}\n",
+          "new": "int nmea_hex_digit(char value) {\n  if (value >= '0' && value <= '9') return value - '0';\n  if (value >= 'A' && value <= 'F') return value - 'A' + 10;\n  if (value >= 'a' && value <= 'f') return value - 'a' + 10;\n  return -1;\n}\n\nbool nmea_checksum_valid(const char *sentence) {\n  const char *separator = strchr(sentence, '*');\n  if (!separator || separator == sentence || separator[1] == 0 || separator[2] == 0) return false;\n  uint8_t checksum = 0;\n  for (const char *cursor = sentence + 1; cursor < separator; cursor++) checksum ^= static_cast<uint8_t>(*cursor);\n  const int high = nmea_hex_digit(separator[1]);\n  const int low = nmea_hex_digit(separator[2]);\n  return high >= 0 && low >= 0 && checksum == static_cast<uint8_t>((high << 4) | low);\n}\n\nbool nmea_digits(const char *value, int begin, int end) {\n  for (int i = begin; i < end; i++) if (value[i] < '0' || value[i] > '9') return false;\n  return true;\n}\n\nbool nmea_time_valid(const char *value) {\n  const int length = strlen(value);\n  if (length < 6 || length > 10 || !nmea_digits(value, 0, 6)) return false;\n  if (length > 6 && (value[6] != '.' || length == 7 || !nmea_digits(value, 7, length))) return false;\n  const int hour = (value[0] - '0') * 10 + value[1] - '0';\n  const int minute = (value[2] - '0') * 10 + value[3] - '0';\n  const int second = (value[4] - '0') * 10 + value[5] - '0';\n  return hour < 24 && minute < 60 && second <= 60;\n}\n\nbool nmea_date_valid(const char *value) {\n  if (strlen(value) != 6 || !nmea_digits(value, 0, 6)) return false;\n  const int day = (value[0] - '0') * 10 + value[1] - '0';\n  const int month = (value[2] - '0') * 10 + value[3] - '0';\n  const int year = (value[4] - '0') * 10 + value[5] - '0';\n  if (month < 1 || month > 12) return false;\n  const int month_days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};\n  int maximum_day = month_days[month - 1];\n  if (month == 2 && year % 4 == 0) maximum_day = 29;\n  return day >= 1 && day <= maximum_day;\n}\n\nvoid process_nmea(char *buf, int len) {\n  buf[len] = 0;\n  if (strncmp(buf, \"$GPRMC\", 6) == 0 ||\n      strncmp(buf, \"$GNRMC\", 6) == 0) {\n    char parsed_time[20] = {};\n    char parsed_date[20] = {};\n    char status = 0;\n    const bool valid = nmea_checksum_valid(buf) &&\n      sscanf(buf + 6, \",%10[^,],%c,%*f,%*c,%*f,%*c,%*f,%*f,%6[^,]\", parsed_time, &status, parsed_date) == 3 &&\n      status == 'A' && nmea_time_valid(parsed_time) && nmea_date_valid(parsed_date);\n    if (valid) {\n      strcpy(utc_time, parsed_time);\n      strcpy(date, parsed_date);\n      if (!time_fixed) {\n        DBG_SERIAL.println(\"Time received. Ready to test some harnesses!\");\n        set_status(GOOD);\n      }\n      time_fixed = true;\n    } else if (!time_fixed) {\n      DBG_SERIAL.println(\"Failed to parse $GPRMC\");\n    }\n  }\n}\n"
+        },
+        {
+          "type": "replace_once",
+          "old": "  if (!separator || separator == sentence || separator[1] == 0 || separator[2] == 0) return false;\n  uint8_t checksum = 0;\n",
+          "new": "  if (!separator || separator == sentence || separator[1] == 0 || separator[2] == 0) return false;\n  if (separator[3] != 0 && separator[3] != '\\r' && separator[3] != '\\n') return false;\n  uint8_t checksum = 0;\n"
         }
       ]
     },

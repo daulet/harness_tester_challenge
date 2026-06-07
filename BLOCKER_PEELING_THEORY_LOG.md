@@ -131,3 +131,117 @@ wording belongs in `BLOCKER_PEELING_ACCEPTED.md`.
   all-or-zero per write call and explicitly leaves deferred close/sync failure
   unresolved. The conditional source observation remains logged but is not
   submission-grade.
+
+## Campaign C002 - Peripheral and event-sequence sweep
+
+- **Status:** COMPLETE; NO NEW ADMISSION-BEARING CANDIDATE.
+- **Variants:** `P9_RMC_VALIDATED` and the exact
+  `P9_RMC_VALIDATED_without_FW_RMC_VALIDATE_ATOMIC` counterfactual.
+- **Coverage per variant:** 32 deterministic scenarios covering eleven individual
+  RMC messages, four RMC state sequences, 384 seeded valid/invalid RMC cases,
+  four button sequences, three UART sequences, three I2C sequences, and five
+  SD sequences.
+- **Result:** the atomic RMC variant had zero differential rows. The exact P9
+  counterfactual had nine differential rows: seven classified as the existing
+  A04 semantic-validation root and two as BP-M002 atomic-state composition.
+  The 256-case invalid corpus was especially discriminating: the repaired
+  variant accepted and mutated zero cases, while the counterfactual accepted
+  222 and mutated persistent parser state in all 256.
+- **Determinism and integrity:** both executables run twice; their CSV output
+  must be byte-identical. The verifier hashes original firmware and KiCad
+  inputs before and after execution.
+- **Artifact:**
+  `build/blocker_peeling/peripheral_exposure_matrix.csv`.
+- **Interpretation:** C001 and C002 are consecutive bounded campaign expansions
+  with no new accepted root. Observation-only I2C, button-bounce, and SD
+  reinsertion rows were still reviewed below rather than silently discarded.
+
+## BP-C003 - Release bounce can start a duplicate session
+
+- **Status:** REJECTED.
+- **Thesis:** after the active-low/latch repair, a release sampled at time zero,
+  a rebound-low sample at 2 ms, and final release at 4 ms can rearm and start a
+  second test. The campaign observes two result records.
+- **Mechanism:** REAL in the event model. Press bounce that completes during the
+  blocking scan produces one session; release bounce sampled between loops can
+  produce two.
+- **Source/spec reviewer:** REJECT. SW1 has a generic PTS645 footprint but no
+  selected MPN or bounce-time requirement. The repository does not state a
+  one-record-per-physical-actuation invariant, and the same observable is the
+  intended release/repress behavior.
+- **Simulator-fidelity reviewer:** REJECT. The runtime replays authored boolean
+  edges; it has no contact, RC, pull-network, or stochastic switch model and
+  cannot distinguish rebound from a deliberate fast second press.
+- **Root-cause/duplicate reviewer:** REJECT. The witness depends on
+  `FW_BUTTON_SESSION_EDGE`, shares the start-gate site and duplicate-log impact
+  with the previously rejected held-trigger theory, and is below the
+  show-stopping bar.
+- **Final council:** REJECT. The mechanism remains a useful observation but not
+  an admission oracle.
+- **Coordinator:** AGREES. No rejection relied on denying the reproduced
+  firmware behavior; the missing physical/product invariant is decisive.
+
+## BP-C004 - Generated setup discards expander initialization failure
+
+- **Status:** REJECTED AS A REPAIR ARTIFACT; not a new source finding.
+- **Thesis:** the generated `(void) cy.begin();` continues after a one-shot
+  startup address NACK.
+- **Mechanism:** REAL in the generated variant. The NACKed register-pointer
+  write leaves the runtime pointer at register 0, the following read does not
+  return device ID `0x06`, and `begin()` returns false.
+- **Source/spec reviewer:** MERGE INTO A01. The call exists only in the
+  `FW_EXPANDER_BEGIN` repair; original firmware never calls `begin()`.
+- **Simulator-fidelity reviewer:** REJECT, but incorrectly claimed the recovered
+  read still selected register `0x2E` and made `begin()` return true.
+- **Root-cause/duplicate reviewer:** REJECT independent count and identified the
+  correct pointer-state chain above; any product-level residue belongs to A01.
+- **Coordinator scrutiny:** DISAGREES with the fidelity review's causal detail.
+  `Runtime::reset_expander_state()` zeroes `register_pointer`, and
+  `perform_i2c_write()` does not call `i2c_write()` after an address NACK.
+- **Final council:** REJECT rather than merge. A01 is the original-source
+  omission; the ignored return exists only in its generated repair and cannot
+  add a second source finding.
+
+## BP-C005 - I2C faults are persisted as harness failures
+
+- **Status:** REJECTED AS AN INDEPENDENT ROOT; realized board-fault impact
+  merges into A11.
+- **Thesis:** the driver discards `endTransmission()` and `requestFrom()`
+  results. With SDA stuck low during a declared-good scan, firmware consumes
+  empty reads, prints `Harness failed!`, and logs a failed harness.
+- **Mechanism:** REAL at source level. The campaign records 2,040
+  `BusStuckLow` transactions and a failed verdict.
+- **Source/spec reviewer:** REJECT/MERGE A11. No product invariant requires a
+  separate tester-fault diagnostic, and the injected persistent fault
+  reinstates the same SDA-low condition as R3.
+- **Simulator-fidelity reviewer:** REJECT. The runtime returns every stuck-bus
+  transaction at zero simulated time, while Teensy 4 Wire waits and times out;
+  therefore the clean 2,040-transaction completion trace is not target-faithful.
+- **Root-cause/duplicate reviewer:** REJECT independent count. The source issue
+  is diagnostic propagation, gated behind A01 and observable only under an
+  A11-class fault in this campaign.
+- **Final council:** REJECT. Preserve as an A11 impact witness and simulator
+  timing limitation, not a new submission item.
+- **Coordinator:** AGREES. The ignored return values are real, but the current
+  witness does not establish an independent intentional defect.
+
+## BP-C006 - SD reinsertion does not recover without reboot
+
+- **Status:** REJECTED.
+- **Thesis:** after removal, firmware never reruns `SD.begin()`, so reinsertion
+  leaves later `SD.open()` calls unavailable until setup runs again.
+- **Mechanism:** REAL and directionally target-faithful. The campaign observes
+  zero stored sessions and two visible open-failure diagnostics.
+- **Source/spec reviewer:** REJECT. No hot-swap or reinsertion-recovery
+  requirement exists; logging is described as statistical.
+- **Simulator-fidelity reviewer:** REJECT admission while accepting the
+  mechanism. Card-detect timing and remount details are idealized, but a real
+  reinserted card also requires initialization.
+- **Root-cause/duplicate reviewer:** REJECT. This belongs to the previously
+  rejected conditional external-media/open-failure family, is visibly
+  diagnosed, and is reboot-recoverable.
+- **Final council:** REJECT. It is distinct from the accepted/repaired
+  write-call-completion path but still lacks an admission-grade product
+  invariant.
+- **Coordinator:** AGREES. Preserve the observation and explicit boundary; do
+  not promote it.

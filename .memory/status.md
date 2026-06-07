@@ -1,14 +1,15 @@
 # Current status
 
 - Branch: `simulator`.
-- Last completed pass: P8 closed-loop LED electrical feedback and BP-T001
-  selected-part color-mapping admission.
-- Current baseline after the SD fidelity correction: 98/98 CTest cases passed against
+- Last completed pass: peripheral/event Campaign C002, atomic RMC
+  counterfactual, and BP-C003 through BP-C006 councils.
+- Current baseline: 99/99 CTest cases passed against
   `/opt/homebrew/bin/ngspice`.
 - Sanitizer boundary: ASan A03 and UBSan A05 expected-failure witnesses pass with
   diagnostic matching on Apple Clang 21.
-- Active item: run peripheral/event-sequence campaigns, minimize mismatches,
-  and send each candidate through direct-Claude councils.
+- Active blocker-peeling item: close the peripheral/event slice, then run the
+  persisted sanitizer corpus and independent state-sequence expansions required
+  by the `goal.md` no-new-candidate stopping rule.
 - Known local-only artifact: untracked `build/`.
 - Available boundaries: Apple Clang 21, CMake 4.2.3, clang-format, ngspice.
 - Missing boundary at bootstrap: `kicad-cli` is not installed or on `PATH`.
@@ -35,3 +36,8 @@
   all three direct Claude reviewers but merged into the existing RMC validation
   root. SD-01 was rejected after target SdFat review exposed byte-granular
   simulator behavior and an unobservable deferred close/sync failure.
+- Peripheral/event campaign: 32 scenarios per variant include 384 seeded RMC
+  cases plus button, UART, I2C, and SD sequences. The repaired RMC variant has
+  zero differentials; the exact P9 counterfactual has nine, all A04/BP-M002.
+  BP-C003 through BP-C006 were reviewed by three independent direct-Claude
+  roles and final council; none survived as a new admission-bearing root.

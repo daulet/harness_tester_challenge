@@ -1,5 +1,26 @@
 # Simulator realism lessons
 
+## 2026-06-07 - Observation-only rows still require adjudication
+
+- Symptom: event campaigns reproduced button bounce, I2C fault, and SD
+  reinsertion behaviors that looked defect-like but lacked product invariants.
+- Root cause: a deterministic simulator can prove firmware response to an
+  authored stimulus without proving that the stimulus, policy, or severity is
+  admission-grade.
+- Source evidence: Campaign C002 and BP-C003 through BP-C006 councils.
+- Permanent rule: retain and review observation-only theories, but require an
+  independent physical or product oracle before promotion.
+
+## 2026-06-07 - Reviewers can agree on disposition for the wrong causal reason
+
+- Symptom: one C004 reviewer rejected the candidate while claiming a NACKed
+  register-pointer write still selected device-ID register `0x2E`.
+- Root cause: the review inferred recovery without tracing runtime state.
+- Source evidence: `reset_expander_state()` leaves `register_pointer` at zero,
+  and an address-NACKed write never calls `i2c_write()`.
+- Permanent rule: scrutinize rejection mechanics as aggressively as acceptance
+  mechanics; preserve the disposition only after correcting factual errors.
+
 ## 2026-06-07 - Campaign baselines must peel oracle-data defects too
 
 - Symptom: P9 repaired probe mechanics and all-row aggregation, but the

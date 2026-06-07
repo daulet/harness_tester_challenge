@@ -113,6 +113,8 @@ set(BLOCKER_PEELING_VARIANTS
   P8_without_FW_RESULT_STATUS_PERSISTENCE
   P9
   P9_without_FW_SD_WRITE_CHECKS
+  P9_RMC_VALIDATED
+  P9_RMC_VALIDATED_without_FW_RMC_VALIDATE_ATOMIC
 )
 
 set(BLOCKER_PEELING_BYPRODUCTS
@@ -278,6 +280,45 @@ target_compile_options(blocker_p9_campaign PRIVATE
   -Wextra
   -Wpedantic
 )
+
+function(add_blocker_peeling_event_campaign target variant rmc_validated)
+  set(firmware_source
+    "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/firmware/firmware.ino"
+  )
+  set(driver_source
+    "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/firmware/CY8C9560.cpp"
+  )
+  set_source_files_properties(${firmware_source} PROPERTIES
+    GENERATED TRUE
+    LANGUAGE CXX
+    COMPILE_OPTIONS "-x;c++"
+  )
+  set_source_files_properties(${driver_source} PROPERTIES GENERATED TRUE)
+  add_executable(${target}
+    simulator/tests/blocker_peeling_event_campaign.cpp
+    ${firmware_source}
+    ${driver_source}
+  )
+  add_dependencies(${target} generate_blocker_peeling_variants)
+  target_link_libraries(${target} PRIVATE host_simulator)
+  target_compile_definitions(${target} PRIVATE
+    HOST_SIM_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
+    BLOCKER_VARIANT_DIR="${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}"
+    BLOCKER_VARIANT_ID="${variant}"
+    BLOCKER_RMC_VALIDATED=${rmc_validated}
+  )
+  target_compile_options(${target} PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+  )
+endfunction()
+
+add_blocker_peeling_event_campaign(
+  blocker_p9_rmc_validated_campaign P9_RMC_VALIDATED 1)
+add_blocker_peeling_event_campaign(
+  blocker_p9_rmc_counterfactual_campaign
+  P9_RMC_VALIDATED_without_FW_RMC_VALIDATE_ATOMIC 0)
 
 function(add_blocker_peeling_led_case target variant)
   set(firmware_source
@@ -624,6 +665,15 @@ add_test(NAME blocker_peeling_p9_without_sd_checks
 add_test(NAME blocker_peeling_harness_campaign
   COMMAND blocker_p9_campaign
     "${BLOCKER_PEELING_OUTPUT_DIR}/exposure_matrix.csv")
+add_test(NAME blocker_peeling_peripheral_event_campaign
+  COMMAND
+    "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/simulator/blocker_peeling/test_event_campaign.py"
+    --root "${CMAKE_CURRENT_SOURCE_DIR}"
+    --repaired "$<TARGET_FILE:blocker_p9_rmc_validated_campaign>"
+    --counterfactual "$<TARGET_FILE:blocker_p9_rmc_counterfactual_campaign>"
+    --output
+      "${BLOCKER_PEELING_OUTPUT_DIR}/peripheral_exposure_matrix.csv")
 add_test(NAME uart_timing_and_topology COMMAND uart_cases)
 add_test(NAME button_and_reset_timing COMMAND timing_cases)
 add_test(NAME i2c_timing_and_faults COMMAND i2c_cases)

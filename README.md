@@ -112,6 +112,23 @@ ctest --test-dir build --output-on-failure
 ./build/harness_simulator_original
 ```
 
+The blocker-peeling generator keeps original firmware and KiCad files
+immutable, emits hashed variants under `build/blocker_peeling/`, and runs two
+bounded discovery matrices:
+
+```sh
+ctest --test-dir build \
+  -R '^blocker_peeling_(harness|peripheral_event)_campaign$' \
+  --output-on-failure
+```
+
+`exposure_matrix.csv` records 2,113 digital harness topologies.
+`peripheral_exposure_matrix.csv` records 32 peripheral/event scenarios per
+variant against an atomic RMC-validation repair and its exact P9
+counterfactual, including a 384-case deterministic parser corpus. See
+`reports/BLOCKER_PEELING_REPORT.md` for admission decisions and explicit
+fidelity limits.
+
 The analog tests require an installed `ngspice` executable. CMake discovers it
 from `PATH`; when it is absent, the named analog tests are reported as skipped.
 On macOS the local requirement can be installed with `brew install ngspice`.

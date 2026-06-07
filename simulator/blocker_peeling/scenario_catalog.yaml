@@ -129,6 +129,34 @@
       "sd_capacity_bytes": [17, 24, 25],
       "expected": "whole-call result and CRLF write failures emit a diagnostic, while a complete CRLF record does not",
       "limitation": "Teensy SdFat reports each write call as full length or zero and can defer media failure to close/sync; the void File.close API leaves deferred failure outside this repair's observable boundary"
+    },
+    {
+      "id": "peripheral_event_campaign",
+      "board_fixture": "P9 generated firmware plus an experimental atomic RMC-validation repair and exact P9 counterfactual",
+      "bounds": {
+        "nmea_single_message_cases": 11,
+        "nmea_state_sequences": 4,
+        "nmea_seeded_mutations": 384,
+        "button_sequences": 4,
+        "uart_sequences": 3,
+        "i2c_sequences": 3,
+        "sd_sequences": 5,
+        "seed": 1163284000
+      },
+      "oracle_sources": [
+        "u-blox 8/M8 protocol specification UBX-13003221 RMC structure and checksum fields",
+        "README.md start-button and persistent-result workflow goals",
+        "Teensy 1.59 SdFat all-or-zero write-call behavior",
+        "runtime transaction traces for model-observation-only fault coverage"
+      ],
+      "expected": "the atomic RMC variant rejects invalid or partial messages without persistent-state mutation; its exact counterfactual reproduces only A04/BP-M002; other bounded workflows produce no unexplained differential",
+      "output": "build/blocker_peeling/peripheral_exposure_matrix.csv",
+      "limitations": [
+        "the 384-case generated corpus calls process_nmea directly and covers parser semantics, while separate single-message and sequence cases cover loop buffering and framing",
+        "button bounce has no selected-part or debounce-time product requirement and is not an admission oracle",
+        "I2C fault diagnostics and SD reinsertion policy are observations unless an external product invariant is found",
+        "deferred SD close/sync failure remains outside the simulator boundary"
+      ]
     }
   ]
 }

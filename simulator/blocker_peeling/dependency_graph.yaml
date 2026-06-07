@@ -530,6 +530,52 @@
       ],
       "counterfactual_for": "FW_SD_WRITE_CHECKS",
       "scenario_ids": ["sd_partial_record"]
+    },
+    {
+      "id": "P9_RMC_VALIDATED",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS",
+        "FW_64BIT_MASKS",
+        "FW_HARNESS_MAPPING",
+        "FW_ALL_ROWS_VERDICT",
+        "FW_EXPECTED_MATRIX_CLOSURE",
+        "FW_BUTTON_SESSION_EDGE",
+        "FW_LED_OUTPUT_MODES",
+        "FW_RESULT_STATUS_PERSISTENCE",
+        "BOARD_LED_POWER_AND_RESISTORS",
+        "BOARD_LED_COLOR_MAPPING",
+        "FW_SD_WRITE_CHECKS",
+        "FW_RMC_VALIDATE_ATOMIC"
+      ],
+      "scenario_ids": ["peripheral_event_campaign"]
+    },
+    {
+      "id": "P9_RMC_VALIDATED_without_FW_RMC_VALIDATE_ATOMIC",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS",
+        "FW_64BIT_MASKS",
+        "FW_HARNESS_MAPPING",
+        "FW_ALL_ROWS_VERDICT",
+        "FW_EXPECTED_MATRIX_CLOSURE",
+        "FW_BUTTON_SESSION_EDGE",
+        "FW_LED_OUTPUT_MODES",
+        "FW_RESULT_STATUS_PERSISTENCE",
+        "BOARD_LED_POWER_AND_RESISTORS",
+        "BOARD_LED_COLOR_MAPPING",
+        "FW_SD_WRITE_CHECKS"
+      ],
+      "counterfactual_for": "FW_RMC_VALIDATE_ATOMIC",
+      "scenario_ids": ["peripheral_event_campaign"]
     }
   ]
 }

@@ -41,18 +41,27 @@
     held-button idle status agree with the independent component oracle in
     every scenario; `build/blocker_peeling/exposure_matrix.csv` contains zero
     differentials.
-- [ ] **Next:** add peripheral and event-sequence campaigns plus delta
-  minimization.
-  - Scope: NMEA validation/state composition, UART/I2C transaction faults,
-    button timing, SD removal/capacity/reboot, and deterministic fuzz
-    regression corpora.
-  - Current adjudication: post-lock partial RMC mutation merges into the
-    existing validation root; SD-01 is rejected after correcting the simulator
-    from byte-granular writes to the target's all-or-zero write-call contract.
-- [ ] Run three-role, direct-Claude disproof councils for every candidate and
+- [x] **Done:** add peripheral and event-sequence campaigns plus minimized
+  witnesses.
+  - Completion: 32 scenarios per variant cover RMC semantics/state
+    composition, a 384-case deterministic parser corpus, UART/I2C transaction
+    faults, button timing/bounce observations, and SD
+    removal/capacity/reinsertion.
+  - Result: the atomic RMC variant has zero differentials; its exact P9
+    counterfactual has nine, all mapped to A04/BP-M002.
+- [x] Run three-role, direct-Claude disproof councils for every candidate and
   produce the accepted, rejected, disputed, exposure-matrix, and final-report
   artifacts from `goal.md`.
-  - Prerequisite: campaign candidates and minimal witnesses.
+  - Completion: BP-C003 through BP-C006 each received source/spec,
+    simulator-fidelity, and root-cause/duplicate reviews plus final council.
+    All mechanisms and dispositions are preserved in
+    `BLOCKER_PEELING_THEORY_LOG.md`; the final report is under `reports/`.
+- [ ] Run a persisted, sanitizer-backed NMEA/peripheral mutation-corpus
+  expansion. Promote every new anomalous state to the full direct-Claude
+  admission pipeline.
+- [ ] Run an independent state-sequence/metamorphic expansion across button,
+  UART, I2C, SD, and parser transitions. The goal stopping rule is met only if
+  this and the preceding expansion produce no new candidates.
 
 ## Q0 - Campaign bootstrap
 
@@ -144,6 +153,9 @@
 - [ ] Add NMEA and peripheral-sequence fuzz targets with a persisted regression
   corpus.
   - Prerequisite: Q2 state machines and Q1 sanitizer targets.
+  - Partial completion: blocker peeling now has 384 deterministic seeded RMC
+    cases and byte-identical replay verification. Sanitizer execution and a
+    separately persisted mutation corpus remain open for the broader Q4 goal.
   - Completion gate for Q4: bounded deterministic sweeps cover documented
     operating limits, every single harness fault is detected or explicitly
     classified as unobservable, and the fuzz regression corpus is clean under
