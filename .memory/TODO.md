@@ -63,9 +63,14 @@
   - Admission result: BP-C007 received three direct-Claude disproof reviews and
     final council, then merged into A04. Because it was a new candidate, the
     no-new-candidate streak remains zero.
-- [ ] Run an independent state-sequence/metamorphic expansion across button,
-  UART, I2C, SD, and parser transitions. The goal stopping rule is met only if
-  two consecutive expansions produce no new candidates.
+- [x] Run independent state-sequence/metamorphic expansions across button,
+  UART, I2C, SD, and parser transitions.
+  - Completion: C004 and C005 each execute 384 invariants plus six
+    expected-differential controls across six relations with distinct
+    deterministic seeds, byte-identical replay, zero unexplained differential,
+    zero error, and no new candidate.
+  - Stopping result: the two-expansion no-new-candidate streak is two, satisfying
+    the `goal.md` stopping rule.
 
 ## Q0 - Campaign bootstrap
 
@@ -157,10 +162,11 @@
 - [ ] Add NMEA and peripheral-sequence fuzz targets with a persisted regression
   corpus.
   - Prerequisite: Q2 state machines and Q1 sanitizer targets.
-  - Partial completion: blocker peeling now has 384 in-process seeded RMC cases
-    plus an 842-case persisted corpus with byte-identical regeneration and clean
-    baseline/ASan/UBSan replay. Broader peripheral state-sequence fuzzing remains
-    open.
+  - Partial completion: blocker peeling now has 384 in-process seeded RMC cases,
+    an 842-case persisted corpus with byte-identical regeneration and clean
+    baseline/ASan/UBSan replay, and 768 clean paired metamorphic cases across
+    parser, button, UART, I2C, and SD behavior. General-purpose fuzz targets
+    remain open outside the bounded blocker-peeling goal.
   - Completion gate for Q4: bounded deterministic sweeps cover documented
     operating limits, every single harness fault is detected or explicitly
     classified as unobservable, and the fuzz regression corpus is clean under

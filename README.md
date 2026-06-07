@@ -113,12 +113,12 @@ ctest --test-dir build --output-on-failure
 ```
 
 The blocker-peeling generator keeps original firmware and KiCad files
-immutable, emits hashed variants under `build/blocker_peeling/`, and runs two
+immutable, emits hashed variants under `build/blocker_peeling/`, and runs
 bounded discovery matrices:
 
 ```sh
 ctest --test-dir build \
-  -R '^blocker_peeling_(harness|peripheral_event)_campaign$' \
+  -R '^blocker_peeling_(harness|peripheral_event|metamorphic)_campaign' \
   --output-on-failure
 ```
 
@@ -134,6 +134,14 @@ The checked-in
 replayable valid, invalid, post-lock, and loop-framing cases. CTest regenerates
 the corpus byte-for-byte and runs it through baseline, AddressSanitizer, and
 UndefinedBehaviorSanitizer builds when those sanitizers are available.
+
+The C004 and C005 metamorphic campaigns each run 384 paired transformations
+across parser fragmentation and neutral insertion, button idle insertion,
+bounded SD latency, I2C clock stretching, and lossless physical-UART polling.
+Each also runs six expected-differential controls. They use distinct
+deterministic seeds, verify that the generated descriptor vectors differ, and
+write
+`metamorphic_matrix_c004.csv` and `metamorphic_matrix_c005.csv`.
 
 The analog tests require an installed `ngspice` executable. CMake discovers it
 from `PATH`; when it is absent, the named analog tests are reported as skipped.

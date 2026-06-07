@@ -85,6 +85,31 @@ BP-C007 was reviewed by three independent direct-Claude roles and final council.
 Final disposition was MERGE into A04 because the same RMC parse site,
 incomplete-validation root, and validate-then-commit fix own the behavior.
 
+### C004 and C005 - Metamorphic state sequences
+
+Two consecutive deterministic-seed expansions each execute 384 paired
+transformations against `P9_RMC_VALIDATED`. The six relations cover:
+
+- NMEA sentence fragmentation;
+- neutral parser-message insertion;
+- duplicate button levels and idle-loop insertion;
+- bounded successful SD latency;
+- bounded I2C clock stretching;
+- lossless physical-UART polling cadence.
+
+C004 uses seed `1296389185`; C005 uses seed `1296389186`. Each category contains
+64 invariant pairs. Six deliberately invariant-breaking controls prove that
+each observation path reports an expected differential. Both campaigns replay
+byte-for-byte deterministically and produce zero unexplained differential, zero
+execution error, and no new candidate.
+
+Every generated parameter is recorded in the transformation descriptor. C005
+also regenerates C004 and rejects equal descriptor vectors. The seed-independent
+descriptor hashes are:
+
+- C004: `a83d6bbc8d4a02c9a59b6976739bcc78a07e4c7e12ef9c76e6bc6f6966ae4678`
+- C005: `4328dc56d974199176e72d7f365fb8ef8b223def5860c5a8100432e6e34247c8`
+
 ## Accepted Finding
 
 `BLOCKER_PEELING_ACCEPTED.md` contains one newly admitted root:
@@ -131,12 +156,13 @@ Broadcom `ASMB-KTF0-0A306-DS100` pin configuration:
 
 ## Stopping Rule Status
 
-C001 through C003 produced no new accepted root, and every differential is
-adjudicated. C002 produced BP-C003 through BP-C006, and C003 produced BP-C007,
-so the stricter `goal.md` stopping rule is not yet met and the consecutive
-no-new-candidate count is zero. Two further campaign expansions must produce no
-new candidates. Rejected and merged theories remain in the log, and unresolved
-model boundaries are explicit above.
+Every peel is executable with causal positive and negative controls; all bounded
+harness combinations and peripheral differentials are evaluated and
+adjudicated. C003 produced BP-C007 and reset the no-new-candidate count. C004
+and C005 are the required two consecutive expansions with distinct deterministic
+seeds and no new candidates, so the stricter `goal.md` stopping rule is met.
+Accepted, rejected, merged, and disputed theories remain in the logs, and
+unresolved model boundaries are explicit above.
 
 ## Validation
 
@@ -146,6 +172,8 @@ The local validation gate completed on June 7, 2026:
 - deterministic double execution of both campaign matrices;
 - deterministic regeneration and baseline/ASan/UBSan replay of the persisted
   corpus;
+- deterministic double execution of 768 metamorphic state-sequence invariants
+  and 12 expected-differential controls over two distinct seeds;
 - AddressSanitizer and UndefinedBehaviorSanitizer witnesses;
 - ngspice electrical fixtures;
-- complete build and 102/102 passing CTests.
+- complete build and 104/104 passing CTests.

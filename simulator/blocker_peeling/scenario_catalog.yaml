@@ -180,6 +180,62 @@
         "the campaign targets repaired RMC parser and loop-framing behavior; broader button, I2C, and SD state-sequence metamorphic coverage is a separate expansion",
         "host sanitizer success does not replace Teensy-target compilation or hardware traces"
       ]
+    },
+    {
+      "id": "metamorphic_state_campaign_c004",
+      "board_fixture": "P9_RMC_VALIDATED generated firmware with cached source-derived schematic-ideal board model",
+      "bounds": {
+        "nmea_fragmentation_pairs": 64,
+        "parser_neutral_insertion_pairs": 64,
+        "button_idle_insertion_pairs": 64,
+        "sd_latency_pairs": 64,
+        "i2c_clock_stretch_pairs": 64,
+        "uart_poll_cadence_pairs": 64,
+        "total_pairs": 384,
+        "detection_controls": 6,
+        "seed": 1296389185
+      },
+      "oracle_sources": [
+        "metamorphic equivalence under message fragmentation and neutral-message insertion",
+        "README.md one-session-per-press and persistent logging workflows",
+        "successful SD operation semantics under bounded latency",
+        "I2C clock stretching preserves transaction data while increasing elapsed time",
+        "lossless physical UART polling periods preserve the delivered RMC stream"
+      ],
+      "expected": "every paired transformation preserves its declared state projection, every deliberately breaking control is detected, and no unexplained differential remains",
+      "output": "build/blocker_peeling/metamorphic_matrix_c004.csv",
+      "limitations": [
+        "relations intentionally exclude unspecified button bounce, I2C fault-diagnostic policy, and SD reinsertion recovery",
+        "parser fragmentation uses explicit bypass injection while the UART cadence relation uses physical timed delivery"
+      ]
+    },
+    {
+      "id": "metamorphic_state_campaign_c005",
+      "board_fixture": "P9_RMC_VALIDATED generated firmware with cached source-derived schematic-ideal board model",
+      "bounds": {
+        "nmea_fragmentation_pairs": 64,
+        "parser_neutral_insertion_pairs": 64,
+        "button_idle_insertion_pairs": 64,
+        "sd_latency_pairs": 64,
+        "i2c_clock_stretch_pairs": 64,
+        "uart_poll_cadence_pairs": 64,
+        "total_pairs": 384,
+        "detection_controls": 6,
+        "seed": 1296389186
+      },
+      "oracle_sources": [
+        "metamorphic equivalence under message fragmentation and neutral-message insertion",
+        "README.md one-session-per-press and persistent logging workflows",
+        "successful SD operation semantics under bounded latency",
+        "I2C clock stretching preserves transaction data while increasing elapsed time",
+        "lossless physical UART polling periods preserve the delivered RMC stream"
+      ],
+      "expected": "every paired transformation preserves its declared state projection, every deliberately breaking control is detected, and no unexplained differential remains",
+      "output": "build/blocker_peeling/metamorphic_matrix_c005.csv",
+      "limitations": [
+        "relations intentionally exclude unspecified button bounce, I2C fault-diagnostic policy, and SD reinsertion recovery",
+        "parser fragmentation uses explicit bypass injection while the UART cadence relation uses physical timed delivery"
+      ]
     }
   ]
 }

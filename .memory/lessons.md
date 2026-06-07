@@ -267,3 +267,19 @@
 - Permanent rule: use model reachability to judge impact and admission scope;
   do not call a source-level parser witness a simulator artifact when the model
   is absent from the causal chain.
+
+## 2026-06-07 - Metamorphic checks need narrow declared projections
+
+- Risk: comparing complete simulator state can turn intentionally different
+  timing or diagnostic details into false candidates.
+- Resolution: each C004/C005 relation names only the state that its
+  transformation promises to preserve, while every mismatch or execution error
+  remains unexplained with no allowlist. Each observation path also has a
+  deliberately invariant-breaking control.
+- Witness: two distinct deterministic seeds produced 768 clean pairs across
+  parser, button, UART, I2C, and SD relations; all 12 controls fired and
+  seed-independent descriptor hashes differ.
+- Permanent rule: define the invariant before generating transformations, keep
+  the projection minimal but sufficient, prove that it detects a known break,
+  record generated parameters separately from the seed, and never suppress an
+  observed mismatch after execution.

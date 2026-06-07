@@ -554,7 +554,9 @@
       ],
       "scenario_ids": [
         "peripheral_event_campaign",
-        "persisted_sanitizer_corpus_campaign"
+        "persisted_sanitizer_corpus_campaign",
+        "metamorphic_state_campaign_c004",
+        "metamorphic_state_campaign_c005"
       ]
     },
     {

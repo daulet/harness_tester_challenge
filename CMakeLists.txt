@@ -369,6 +369,37 @@ endfunction()
 add_blocker_peeling_persisted_corpus(
   blocker_p9_rmc_persisted_corpus none)
 
+set(blocker_p9_metamorphic_firmware
+  "${BLOCKER_PEELING_OUTPUT_DIR}/variants/P9_RMC_VALIDATED/firmware/firmware.ino"
+)
+set(blocker_p9_metamorphic_driver
+  "${BLOCKER_PEELING_OUTPUT_DIR}/variants/P9_RMC_VALIDATED/firmware/CY8C9560.cpp"
+)
+set_source_files_properties(${blocker_p9_metamorphic_firmware} PROPERTIES
+  GENERATED TRUE
+  LANGUAGE CXX
+  COMPILE_OPTIONS "-x;c++"
+)
+set_source_files_properties(${blocker_p9_metamorphic_driver}
+  PROPERTIES GENERATED TRUE)
+add_executable(blocker_p9_metamorphic_campaign
+  simulator/tests/blocker_peeling_metamorphic_campaign.cpp
+  ${blocker_p9_metamorphic_firmware}
+  ${blocker_p9_metamorphic_driver}
+)
+add_dependencies(
+  blocker_p9_metamorphic_campaign generate_blocker_peeling_variants)
+target_link_libraries(blocker_p9_metamorphic_campaign PRIVATE host_simulator)
+target_compile_definitions(blocker_p9_metamorphic_campaign PRIVATE
+  HOST_SIM_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
+  BLOCKER_VARIANT_DIR="${BLOCKER_PEELING_OUTPUT_DIR}/variants/P9_RMC_VALIDATED"
+)
+target_compile_options(blocker_p9_metamorphic_campaign PRIVATE
+  -Wall
+  -Wextra
+  -Wpedantic
+)
+
 function(add_blocker_peeling_led_case target variant)
   set(firmware_source
     "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/firmware/firmware.ino"
@@ -779,6 +810,23 @@ else()
   set_tests_properties(blocker_peeling_persisted_corpus_ubsan
     PROPERTIES SKIP_RETURN_CODE 77)
 endif()
+add_test(NAME blocker_peeling_metamorphic_campaign_c004
+  COMMAND
+    "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/simulator/blocker_peeling/test_metamorphic_campaign.py"
+    --root "${CMAKE_CURRENT_SOURCE_DIR}"
+    --executable "$<TARGET_FILE:blocker_p9_metamorphic_campaign>"
+    --output "${BLOCKER_PEELING_OUTPUT_DIR}/metamorphic_matrix_c004.csv"
+    --seed 1296389185)
+add_test(NAME blocker_peeling_metamorphic_campaign_c005
+  COMMAND
+    "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/simulator/blocker_peeling/test_metamorphic_campaign.py"
+    --root "${CMAKE_CURRENT_SOURCE_DIR}"
+    --executable "$<TARGET_FILE:blocker_p9_metamorphic_campaign>"
+    --output "${BLOCKER_PEELING_OUTPUT_DIR}/metamorphic_matrix_c005.csv"
+    --seed 1296389186
+    --different-seed 1296389185)
 add_test(NAME uart_timing_and_topology COMMAND uart_cases)
 add_test(NAME button_and_reset_timing COMMAND timing_cases)
 add_test(NAME i2c_timing_and_faults COMMAND i2c_cases)

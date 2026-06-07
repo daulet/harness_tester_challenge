@@ -1,14 +1,14 @@
 # Current status
 
 - Branch: `simulator`.
-- Last completed pass: persisted sanitizer Campaign C003 and BP-C007 council.
-- Current baseline: 102/102 CTest cases passed against
+- Last completed pass: metamorphic Campaigns C004 and C005.
+- Current baseline: 104/104 CTest cases passed against
   `/opt/homebrew/bin/ngspice`.
 - Sanitizer boundary: ASan A03 and UBSan A05 expected-failure witnesses pass with
   diagnostic matching on Apple Clang 21.
-- Active blocker-peeling item: complete the independent state-sequence
-  metamorphic expansion. Campaign C003 produced BP-C007 and merged it into A04,
-  resetting the `goal.md` no-new-candidate streak to zero.
+- Active blocker-peeling item: final exact-diff review and stopping-rule audit.
+  C004 and C005 each produced no candidate, bringing the consecutive
+  no-new-candidate streak to two.
 - Known local-only artifact: untracked `build/`.
 - Available boundaries: Apple Clang 21, CMake 4.2.3, clang-format, ngspice.
 - Missing boundary at bootstrap: `kicad-cli` is not installed or on `PATH`.
@@ -45,3 +45,8 @@
   differentials exposed a repair gap; after delimiter validation, baseline,
   ASan, and UBSan matrices each contain 842 rows and zero differentials.
   BP-C007 merged into A04 after three direct-Claude reviews and final council.
+- Metamorphic campaigns: C004 and C005 each run 384 state-projection pairs with
+  distinct deterministic seeds across parser, button, UART, I2C, and SD
+  relations plus six expected-differential controls. Both replay byte-for-byte
+  with zero unexplained differential and zero error; their seed-independent
+  descriptor vectors differ and the two-expansion stopping streak is complete.
