@@ -96,13 +96,6 @@
     {
       "id": "P8",
       "requires": ["P7"],
-      "repairs": [],
-      "deferred": true,
-      "invariant": "Blocked on Q3 closed-loop LED electrical feedback; no GPIO-only surrogate is admissible."
-    },
-    {
-      "id": "P9",
-      "requires": ["P7"],
       "repairs": [
         "FW_EXPANDER_BEGIN",
         "PCB_I2C_SDA_PULLUP",
@@ -114,6 +107,29 @@
         "FW_HARNESS_MAPPING",
         "FW_ALL_ROWS_VERDICT",
         "FW_BUTTON_SESSION_EDGE",
+        "FW_LED_OUTPUT_MODES",
+        "BOARD_LED_POWER_AND_RESISTORS",
+        "BOARD_LED_COLOR_MAPPING"
+      ],
+      "invariant": "Solved LED current follows BUSY, GOOD, and FAILED through actual GPIO modes and an explicitly corrected current-limited board overlay."
+    },
+    {
+      "id": "P9",
+      "requires": ["P8"],
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS",
+        "FW_64BIT_MASKS",
+        "FW_HARNESS_MAPPING",
+        "FW_ALL_ROWS_VERDICT",
+        "FW_BUTTON_SESSION_EDGE",
+        "FW_LED_OUTPUT_MODES",
+        "BOARD_LED_POWER_AND_RESISTORS",
+        "BOARD_LED_COLOR_MAPPING",
         "FW_SD_WRITE_CHECKS"
       ],
       "invariant": "A partial result record is observable as a storage failure rather than silently accepted."
@@ -335,6 +351,82 @@
       "scenario_ids": ["button_press_hold_release"]
     },
     {
+      "id": "P8",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS",
+        "FW_64BIT_MASKS",
+        "FW_HARNESS_MAPPING",
+        "FW_ALL_ROWS_VERDICT",
+        "FW_BUTTON_SESSION_EDGE",
+        "FW_LED_OUTPUT_MODES",
+        "BOARD_LED_POWER_AND_RESISTORS",
+        "BOARD_LED_COLOR_MAPPING"
+      ],
+      "scenario_ids": ["led_status_closed_loop"]
+    },
+    {
+      "id": "P8_without_FW_LED_OUTPUT_MODES",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS",
+        "FW_64BIT_MASKS",
+        "FW_HARNESS_MAPPING",
+        "FW_ALL_ROWS_VERDICT",
+        "FW_BUTTON_SESSION_EDGE",
+        "BOARD_LED_POWER_AND_RESISTORS",
+        "BOARD_LED_COLOR_MAPPING"
+      ],
+      "counterfactual_for": "FW_LED_OUTPUT_MODES",
+      "scenario_ids": ["led_status_closed_loop"]
+    },
+    {
+      "id": "P8_without_BOARD_LED_POWER_AND_RESISTORS",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS",
+        "FW_64BIT_MASKS",
+        "FW_HARNESS_MAPPING",
+        "FW_ALL_ROWS_VERDICT",
+        "FW_BUTTON_SESSION_EDGE",
+        "FW_LED_OUTPUT_MODES",
+        "BOARD_LED_COLOR_MAPPING"
+      ],
+      "counterfactual_for": "BOARD_LED_POWER_AND_RESISTORS",
+      "scenario_ids": ["led_status_closed_loop"]
+    },
+    {
+      "id": "P8_without_BOARD_LED_COLOR_MAPPING",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS",
+        "FW_64BIT_MASKS",
+        "FW_HARNESS_MAPPING",
+        "FW_ALL_ROWS_VERDICT",
+        "FW_BUTTON_SESSION_EDGE",
+        "FW_LED_OUTPUT_MODES",
+        "BOARD_LED_POWER_AND_RESISTORS"
+      ],
+      "counterfactual_for": "BOARD_LED_COLOR_MAPPING",
+      "scenario_ids": ["led_status_closed_loop"]
+    },
+    {
       "id": "P9",
       "repairs": [
         "FW_EXPANDER_BEGIN",
@@ -347,6 +439,9 @@
         "FW_HARNESS_MAPPING",
         "FW_ALL_ROWS_VERDICT",
         "FW_BUTTON_SESSION_EDGE",
+        "FW_LED_OUTPUT_MODES",
+        "BOARD_LED_POWER_AND_RESISTORS",
+        "BOARD_LED_COLOR_MAPPING",
         "FW_SD_WRITE_CHECKS"
       ],
       "scenario_ids": ["sd_partial_record"]
@@ -363,7 +458,10 @@
         "FW_64BIT_MASKS",
         "FW_HARNESS_MAPPING",
         "FW_ALL_ROWS_VERDICT",
-        "FW_BUTTON_SESSION_EDGE"
+        "FW_BUTTON_SESSION_EDGE",
+        "FW_LED_OUTPUT_MODES",
+        "BOARD_LED_POWER_AND_RESISTORS",
+        "BOARD_LED_COLOR_MAPPING"
       ],
       "counterfactual_for": "FW_SD_WRITE_CHECKS",
       "scenario_ids": ["sd_partial_record"]

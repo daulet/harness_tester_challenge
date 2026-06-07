@@ -105,6 +105,10 @@ set(BLOCKER_PEELING_VARIANTS
   P6_without_FW_ALL_ROWS_VERDICT
   P7
   P7_without_FW_BUTTON_SESSION_EDGE
+  P8
+  P8_without_FW_LED_OUTPUT_MODES
+  P8_without_BOARD_LED_POWER_AND_RESISTORS
+  P8_without_BOARD_LED_COLOR_MAPPING
   P9
   P9_without_FW_SD_WRITE_CHECKS
 )
@@ -117,6 +121,7 @@ foreach(variant IN LISTS BLOCKER_PEELING_VARIANTS)
     "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/firmware/firmware.ino"
     "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/firmware/CY8C9560.cpp"
     "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/kicad_files/hardware_challenge.kicad_pcb"
+    "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/simulator/blocker_peeling/board_electrical_overlay.fixture"
     "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/variant.generated.json"
   )
 endforeach()
@@ -135,6 +140,7 @@ add_custom_command(
     "${CMAKE_CURRENT_SOURCE_DIR}/firmware/CY8C9560.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/kicad_files/hardware_challenge.kicad_pcb"
     "${CMAKE_CURRENT_SOURCE_DIR}/kicad_files/hardware_challenge.kicad_sch"
+    "${CMAKE_CURRENT_SOURCE_DIR}/simulator/blocker_peeling/board_electrical_overlay.fixture"
   BYPRODUCTS ${BLOCKER_PEELING_BYPRODUCTS}
   VERBATIM
 )
@@ -238,6 +244,39 @@ add_blocker_peeling_workflow_case(
 add_blocker_peeling_workflow_case(blocker_p9 P9)
 add_blocker_peeling_workflow_case(
   blocker_p9_without_sd_checks P9_without_FW_SD_WRITE_CHECKS)
+
+function(add_blocker_peeling_led_case target variant)
+  set(firmware_source
+    "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/firmware/firmware.ino"
+  )
+  set(driver_source
+    "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/firmware/CY8C9560.cpp"
+  )
+  set_source_files_properties(${firmware_source} PROPERTIES
+    GENERATED TRUE
+    LANGUAGE CXX
+    COMPILE_OPTIONS "-x;c++"
+  )
+  set_source_files_properties(${driver_source} PROPERTIES GENERATED TRUE)
+  add_executable(${target}
+    simulator/tests/blocker_peeling_led_cases.cpp
+    ${firmware_source}
+    ${driver_source}
+  )
+  add_dependencies(${target} generate_blocker_peeling_variants)
+  target_link_libraries(${target} PRIVATE host_simulator)
+  target_compile_definitions(${target} PRIVATE
+    HOST_SIM_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
+    HOST_SIM_NGSPICE="${NGSPICE_EXECUTABLE}"
+    BLOCKER_VARIANT_DIR="${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}"
+    BLOCKER_VARIANT_ID="${variant}"
+  )
+  target_compile_options(${target} PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+  )
+endfunction()
 
 function(check_sanitizer_available sanitizer result)
   set(saved_required_flags "${CMAKE_REQUIRED_FLAGS}")
@@ -432,6 +471,14 @@ target_compile_options(analog_cases PRIVATE
   -Wpedantic
 )
 
+add_blocker_peeling_led_case(blocker_p8 P8)
+add_blocker_peeling_led_case(
+  blocker_p8_without_modes P8_without_FW_LED_OUTPUT_MODES)
+add_blocker_peeling_led_case(
+  blocker_p8_without_power P8_without_BOARD_LED_POWER_AND_RESISTORS)
+add_blocker_peeling_led_case(
+  blocker_p8_without_mapping P8_without_BOARD_LED_COLOR_MAPPING)
+
 enable_testing()
 add_test(NAME pcb_source_parity COMMAND board_model_cases)
 add_test(NAME runtime_defaults COMMAND runtime_cases)
@@ -503,6 +550,21 @@ add_test(NAME blocker_peeling_p7
   COMMAND blocker_p7 button-repaired)
 add_test(NAME blocker_peeling_p7_without_button
   COMMAND blocker_p7_without_button button-counterfactual)
+add_test(NAME blocker_peeling_p8
+  COMMAND blocker_p8 repaired)
+set_tests_properties(blocker_peeling_p8 PROPERTIES SKIP_RETURN_CODE 77)
+add_test(NAME blocker_peeling_p8_without_modes
+  COMMAND blocker_p8_without_modes without-modes)
+set_tests_properties(blocker_peeling_p8_without_modes
+  PROPERTIES SKIP_RETURN_CODE 77)
+add_test(NAME blocker_peeling_p8_without_power
+  COMMAND blocker_p8_without_power without-power)
+set_tests_properties(blocker_peeling_p8_without_power
+  PROPERTIES SKIP_RETURN_CODE 77)
+add_test(NAME blocker_peeling_p8_without_mapping
+  COMMAND blocker_p8_without_mapping without-mapping)
+set_tests_properties(blocker_peeling_p8_without_mapping
+  PROPERTIES SKIP_RETURN_CODE 77)
 add_test(NAME blocker_peeling_p9
   COMMAND blocker_p9 sd-repaired)
 add_test(NAME blocker_peeling_p9_line_ending_short

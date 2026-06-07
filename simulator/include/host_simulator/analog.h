@@ -7,6 +7,13 @@
 namespace host_sim {
 
 class BoardModel;
+struct AnalogStimulus;
+
+enum class LedChannel {
+  Red,
+  Green,
+  Blue,
+};
 
 struct AnalogFixture {
   std::string name;
@@ -17,15 +24,33 @@ struct AnalogFixture {
 };
 
 struct BoardElectricalConfig {
-  // Board-derived pulls override fixture defaults; other analog parameters
-  // remain under the fixture author's control.
+  // Board-derived values override the corresponding authored fixture values.
   double i2c_sda_pullup_ohm = 1e12;
   double i2c_sda_pulldown_ohm = 1e12;
   double i2c_scl_pullup_ohm = 1e12;
   double i2c_scl_pulldown_ohm = 1e12;
+  double led_anode_path_ohm = 1e12;
+  double led_red_series_ohm = 1e12;
+  double led_green_series_ohm = 1e12;
+  double led_blue_series_ohm = 1e12;
+  LedChannel physical_red_driven_by = LedChannel::Red;
+  LedChannel physical_green_driven_by = LedChannel::Green;
+  LedChannel physical_blue_driven_by = LedChannel::Blue;
 
   static BoardElectricalConfig from_board(const BoardModel &model);
   void apply_to(AnalogFixture &fixture) const;
+  void map_led_stimulus(AnalogStimulus &stimulus) const;
+};
+
+struct BoardElectricalOverlay {
+  std::optional<double> led_anode_path_ohm;
+  std::optional<double> led_red_series_ohm;
+  std::optional<double> led_green_series_ohm;
+  std::optional<double> led_blue_series_ohm;
+  bool use_identity_led_mapping = false;
+
+  static BoardElectricalOverlay load(const std::string &path);
+  void apply_to(BoardElectricalConfig &config) const;
 };
 
 struct AnalogStimulus {

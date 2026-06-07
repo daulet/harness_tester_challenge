@@ -272,6 +272,9 @@ public:
   AnalogStimulus analog_stimulus() const;
   AnalogObservation simulate_analog(const NgSpiceSimulator &simulator,
                                     const AnalogFixture &fixture) const;
+  AnalogObservation simulate_analog(
+      const NgSpiceSimulator &simulator, const AnalogFixture &fixture,
+      const BoardElectricalConfig &electrical_config) const;
 
 private:
   struct PinState {

@@ -45,20 +45,22 @@ SSCL i2c_scl 0 scl_control 0 OPEN_DRAIN
 CI2C_SDA i2c_sda 0 100p
 CI2C_SCL i2c_scl 0 100p
 
+RLED_ANODE_PATH rail33 led_common_anode {LED_ANODE_PATH_R}
+
 VLED_RED_CONTROL led_red_control 0 {LED_RED_ON}
-RLED_RED rail33 led_red_anode {LED_RED_R}
+RLED_RED led_common_anode led_red_anode {LED_RED_R}
 DLED_RED led_red_anode led_red_cathode LED_RED
 VLED_RED_SENSE led_red_cathode led_red_switch 0
 SLED_RED led_red_switch 0 led_red_control 0 OPEN_DRAIN
 
 VLED_GREEN_CONTROL led_green_control 0 {LED_GREEN_ON}
-RLED_GREEN rail33 led_green_anode {LED_GREEN_R}
+RLED_GREEN led_common_anode led_green_anode {LED_GREEN_R}
 DLED_GREEN led_green_anode led_green_cathode LED_GREEN
 VLED_GREEN_SENSE led_green_cathode led_green_switch 0
 SLED_GREEN led_green_switch 0 led_green_control 0 OPEN_DRAIN
 
 VLED_BLUE_CONTROL led_blue_control 0 {LED_BLUE_ON}
-RLED_BLUE rail33 led_blue_anode {LED_BLUE_R}
+RLED_BLUE led_common_anode led_blue_anode {LED_BLUE_R}
 DLED_BLUE led_blue_anode led_blue_cathode LED_BLUE
 VLED_BLUE_SENSE led_blue_cathode led_blue_switch 0
 SLED_BLUE led_blue_switch 0 led_blue_control 0 OPEN_DRAIN

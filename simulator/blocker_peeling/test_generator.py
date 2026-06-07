@@ -39,6 +39,7 @@ def main():
     root = args.root.resolve()
     generator = root / "simulator/blocker_peeling/generate_variants.py"
     source_paths = [
+        root / "simulator/blocker_peeling/board_electrical_overlay.fixture",
         root / "firmware/firmware.ino",
         root / "firmware/CY8C9560.cpp",
         root / "firmware/CY8C9560.h",
@@ -77,6 +78,7 @@ def main():
 
         broken_root = temporary / "broken-root"
         for relative in [
+            "simulator/blocker_peeling/board_electrical_overlay.fixture",
             "firmware/firmware.ino",
             "firmware/CY8C9560.cpp",
             "firmware/CY8C9560.h",

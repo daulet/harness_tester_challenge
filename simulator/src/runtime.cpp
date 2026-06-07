@@ -1095,6 +1095,14 @@ AnalogObservation Runtime::simulate_analog(const NgSpiceSimulator &simulator,
   return simulator.run(fixture, analog_stimulus());
 }
 
+AnalogObservation Runtime::simulate_analog(
+    const NgSpiceSimulator &simulator, const AnalogFixture &fixture,
+    const BoardElectricalConfig &electrical_config) const {
+  auto stimulus = analog_stimulus();
+  electrical_config.map_led_stimulus(stimulus);
+  return simulator.run(fixture, stimulus);
+}
+
 bool Runtime::expander_available() const {
   return Wire2.begun() && !expander_.reset_asserted;
 }

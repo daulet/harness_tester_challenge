@@ -22,11 +22,17 @@
   - Validation: 89/89 CTests, including full-record and one-byte-short CRLF
     controls, with original firmware, driver, schematic, and PCB hashes
     unchanged.
-- [ ] **Next:** complete P8 through Q3 closed-loop LED electrical feedback.
-  - Prerequisite: export MCU drive states into the KiCad-derived solver and feed
-    solved levels back into firmware-visible observations.
-- [ ] Add the full generated harness, peripheral, and sequence campaigns plus
-  delta minimization.
+- [x] **Done:** complete P8 closed-loop LED electrical feedback.
+  - Completion: Runtime output-mode-gated LED drive states feed a source-derived
+    board electrical configuration and ngspice solve; selected-part pin mapping,
+    common-anode continuity, and missing series resistors are modeled from the
+    KiCad artifacts plus the official D3 pinout.
+  - Validation: the cumulative P8 variant produces the intended physical
+    red/green/blue currents, while leave-one-out firmware-mode, power/resistor,
+    and color-mapping variants each expose their distinct failure. Full baseline
+    is 93/93 CTests.
+- [ ] **Next:** add the full generated harness, peripheral, and sequence
+  campaigns plus delta minimization.
   - Prerequisite: P4-P9 and Q3 closed-loop all-channel behavior.
 - [ ] Run three-role, direct-Claude disproof councils for every candidate and
   produce the accepted, rejected, disputed, exposure-matrix, and final-report
@@ -92,8 +98,13 @@
 - [x] **Done:** generate I2C pull-network configuration from parsed KiCad component,
   value, pin, and net data instead of duplicating topology in fixtures.
   - Prerequisite: Q1 structural BoardModel accessors.
-- [ ] **Next:** export actual MCU and expander pin modes/drives to the electrical solver and
-  feed solved logic levels back into `digitalRead()` and expander inputs.
+- [x] **Done:** export actual LED MCU pin modes/drives to the electrical solver
+  and solve the resulting physical die currents.
+  - Completion: P8 uses the Runtime GPIO state and parsed board facts rather
+    than a test-authored LED stimulus.
+- [ ] **Next:** extend closed-loop drive/solve/readback beyond the LED path to
+  MCU and expander harness/I2C pins, then feed solved logic levels into
+  `digitalRead()` and expander inputs.
   - Prerequisite: generated board electrical configuration and Q2 event queue.
 - [ ] Replace the representative harness channel with all 40 mapped channels,
   including per-channel opens, shorts, leakage, R/L/C, and contention.

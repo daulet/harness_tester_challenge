@@ -1,0 +1,6 @@
+# Zero means retain the value derived from the unchanged KiCad board.
+led_anode_path_ohm=0
+led_red_series_ohm=0
+led_green_series_ohm=0
+led_blue_series_ohm=0
+use_identity_led_mapping=0

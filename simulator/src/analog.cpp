@@ -48,6 +48,7 @@ const std::vector<std::string> &required_parameters() {
       "i2c_sda_pulldown_ohm",
       "i2c_scl_pullup_ohm",
       "i2c_scl_pulldown_ohm",
+      "led_anode_path_ohm",
       "led_red_series_ohm",
       "led_green_series_ohm",
       "led_blue_series_ohm",
@@ -181,6 +182,53 @@ bool is_i2c_line(const std::string &net) {
 
 bool is_pull_rail(const std::string &net) {
   return net == "+3.3V" || net == "GND";
+}
+
+LedChannel led_channel_for_net(const std::string &net) {
+  if (net == "LED_R") {
+    return LedChannel::Red;
+  }
+  if (net == "LED_G") {
+    return LedChannel::Green;
+  }
+  if (net == "LED_B") {
+    return LedChannel::Blue;
+  }
+  throw std::runtime_error("unsupported LED cathode net: " + net);
+}
+
+std::optional<bool> led_value(const AnalogStimulus &stimulus,
+                              LedChannel channel) {
+  switch (channel) {
+  case LedChannel::Red:
+    return stimulus.led_red_on;
+  case LedChannel::Green:
+    return stimulus.led_green_on;
+  case LedChannel::Blue:
+    return stimulus.led_blue_on;
+  }
+  throw std::logic_error("unknown LED channel");
+}
+
+double led_series_resistance(const BoardModel &model,
+                             const std::string &net) {
+  const auto physical = model.physical_nets().find(net);
+  if (physical == model.physical_nets().end()) {
+    return 1e12;
+  }
+  for (const auto &reference : physical->second.references) {
+    const auto component = model.components().find(reference);
+    if (component == model.components().end() ||
+        component->second.schematic_lib_id.rfind("Device:R", 0) != 0) {
+      continue;
+    }
+    const auto &value = component->second.pcb_value.empty()
+        ? component->second.schematic_value
+        : component->second.pcb_value;
+    return parse_resistance(value, reference);
+  }
+  // No current-limiting component exists between the MCU and LED cathode.
+  return 1.0;
 }
 
 bool has_suffix(const std::string &value, const std::string &suffix) {
@@ -326,6 +374,75 @@ double AnalogFixture::parameter(const std::string &name) const {
   return value->second;
 }
 
+BoardElectricalOverlay
+BoardElectricalOverlay::load(const std::string &path) {
+  std::ifstream input(path);
+  if (!input) {
+    throw std::runtime_error("failed to open board electrical overlay: " + path);
+  }
+
+  BoardElectricalOverlay overlay;
+  std::set<std::string> seen;
+  std::string line;
+  std::size_t line_number = 0;
+  while (std::getline(input, line)) {
+    ++line_number;
+    const auto comment = line.find('#');
+    if (comment != std::string::npos) {
+      line.erase(comment);
+    }
+    line = trim(std::move(line));
+    if (line.empty()) {
+      continue;
+    }
+    const auto separator = line.find('=');
+    if (separator == std::string::npos) {
+      throw std::runtime_error("invalid board electrical overlay line " +
+                               std::to_string(line_number));
+    }
+    const auto key = trim(line.substr(0, separator));
+    const auto value = parse_number(trim(line.substr(separator + 1)), key);
+    if (!seen.insert(key).second) {
+      throw std::runtime_error("duplicate board electrical overlay key: " + key);
+    }
+    if (key == "use_identity_led_mapping") {
+      if (value != 0.0 && value != 1.0) {
+        throw std::runtime_error(
+            "use_identity_led_mapping must be zero or one");
+      }
+      overlay.use_identity_led_mapping = value == 1.0;
+      continue;
+    }
+    if (value < 0.0) {
+      throw std::runtime_error("board electrical override cannot be negative: " +
+                               key);
+    }
+    const auto override = value == 0.0 ? std::optional<double>{}
+                                       : std::optional<double>{value};
+    if (key == "led_anode_path_ohm") {
+      overlay.led_anode_path_ohm = override;
+    } else if (key == "led_red_series_ohm") {
+      overlay.led_red_series_ohm = override;
+    } else if (key == "led_green_series_ohm") {
+      overlay.led_green_series_ohm = override;
+    } else if (key == "led_blue_series_ohm") {
+      overlay.led_blue_series_ohm = override;
+    } else {
+      throw std::runtime_error("unknown board electrical overlay key: " + key);
+    }
+  }
+
+  const std::set<std::string> required = {
+      "led_anode_path_ohm", "led_red_series_ohm",
+      "led_green_series_ohm", "led_blue_series_ohm",
+      "use_identity_led_mapping"};
+  if (seen != required) {
+    throw std::runtime_error(
+        "board electrical overlay does not define every required key");
+  }
+  return overlay;
+}
+
 BoardElectricalConfig BoardElectricalConfig::from_board(
     const BoardModel &model) {
   std::optional<double> sda_pullup;
@@ -369,6 +486,33 @@ BoardElectricalConfig BoardElectricalConfig::from_board(
   config.i2c_scl_pullup_ohm = scl_pullup.value_or(config.i2c_scl_pullup_ohm);
   config.i2c_scl_pulldown_ohm =
       scl_pulldown.value_or(config.i2c_scl_pulldown_ohm);
+  const auto &led = model.component("D3");
+  const auto &d3_value =
+      led.pcb_value.empty() ? led.schematic_value : led.pcb_value;
+  if (d3_value != "ASMB-KTF0-0A306") {
+    throw std::runtime_error("unsupported D3 pin map: " + d3_value);
+  }
+  if (model.pad("D3", "1").net != "+3.3V" ||
+      model.pad("U4", "32").net != "+3.3V") {
+    throw std::runtime_error("unsupported D3 anode rail endpoints");
+  }
+  config.led_anode_path_ohm =
+      model.pcb_connected("+3.3V", "D3", "1", "U4", "32") ? 1.0 : 1e12;
+  config.led_red_series_ohm =
+      led_series_resistance(model, model.pad("D3", "2").net);
+  config.led_green_series_ohm =
+      led_series_resistance(model, model.pad("D3", "3").net);
+  config.led_blue_series_ohm =
+      led_series_resistance(model, model.pad("D3", "4").net);
+
+  // Broadcom ASMB-KTF0-0A306-DS100 defines pin 2 as red cathode,
+  // pin 3 as green cathode, and pin 4 as blue cathode.
+  config.physical_red_driven_by =
+      led_channel_for_net(model.pad("D3", "2").net);
+  config.physical_green_driven_by =
+      led_channel_for_net(model.pad("D3", "3").net);
+  config.physical_blue_driven_by =
+      led_channel_for_net(model.pad("D3", "4").net);
   return config;
 }
 
@@ -383,10 +527,47 @@ void BoardElectricalConfig::apply_to(AnalogFixture &fixture) const {
   validate("i2c_sda_pulldown_ohm", i2c_sda_pulldown_ohm);
   validate("i2c_scl_pullup_ohm", i2c_scl_pullup_ohm);
   validate("i2c_scl_pulldown_ohm", i2c_scl_pulldown_ohm);
+  validate("led_anode_path_ohm", led_anode_path_ohm);
+  validate("led_red_series_ohm", led_red_series_ohm);
+  validate("led_green_series_ohm", led_green_series_ohm);
+  validate("led_blue_series_ohm", led_blue_series_ohm);
   fixture.parameters["i2c_sda_pullup_ohm"] = i2c_sda_pullup_ohm;
   fixture.parameters["i2c_sda_pulldown_ohm"] = i2c_sda_pulldown_ohm;
   fixture.parameters["i2c_scl_pullup_ohm"] = i2c_scl_pullup_ohm;
   fixture.parameters["i2c_scl_pulldown_ohm"] = i2c_scl_pulldown_ohm;
+  fixture.parameters["led_anode_path_ohm"] = led_anode_path_ohm;
+  fixture.parameters["led_red_series_ohm"] = led_red_series_ohm;
+  fixture.parameters["led_green_series_ohm"] = led_green_series_ohm;
+  fixture.parameters["led_blue_series_ohm"] = led_blue_series_ohm;
+}
+
+void BoardElectricalConfig::map_led_stimulus(
+    AnalogStimulus &stimulus) const {
+  const auto logical = stimulus;
+  stimulus.led_red_on = led_value(logical, physical_red_driven_by);
+  stimulus.led_green_on = led_value(logical, physical_green_driven_by);
+  stimulus.led_blue_on = led_value(logical, physical_blue_driven_by);
+}
+
+void BoardElectricalOverlay::apply_to(
+    BoardElectricalConfig &config) const {
+  if (led_anode_path_ohm) {
+    config.led_anode_path_ohm = *led_anode_path_ohm;
+  }
+  if (led_red_series_ohm) {
+    config.led_red_series_ohm = *led_red_series_ohm;
+  }
+  if (led_green_series_ohm) {
+    config.led_green_series_ohm = *led_green_series_ohm;
+  }
+  if (led_blue_series_ohm) {
+    config.led_blue_series_ohm = *led_blue_series_ohm;
+  }
+  if (use_identity_led_mapping) {
+    config.physical_red_driven_by = LedChannel::Red;
+    config.physical_green_driven_by = LedChannel::Green;
+    config.physical_blue_driven_by = LedChannel::Blue;
+  }
 }
 
 double AnalogObservation::measurement(const std::string &name) const {
@@ -497,6 +678,8 @@ AnalogObservation NgSpiceSimulator::run(const AnalogFixture &fixture,
                   bool_value(stimulus.i2c_sda_low, 0.0));
   write_parameter(netlist, "SCL_FORCE_LOW",
                   bool_value(stimulus.i2c_scl_low, 0.0));
+  write_parameter(netlist, "LED_ANODE_PATH_R",
+                  fixture.parameter("led_anode_path_ohm"));
   write_parameter(netlist, "LED_RED_R",
                   fixture.parameter("led_red_series_ohm"));
   write_parameter(netlist, "LED_GREEN_R",

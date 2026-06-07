@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "sources": {
+    "electrical_overlay": "simulator/blocker_peeling/board_electrical_overlay.fixture",
     "firmware": "firmware/firmware.ino",
     "driver": "firmware/CY8C9560.cpp",
     "pcb": "kicad_files/hardware_challenge.kicad_pcb"
@@ -258,6 +259,61 @@
       ]
     },
     {
+      "id": "FW_LED_OUTPUT_MODES",
+      "artifact": "firmware",
+      "surface": "firmware",
+      "peel": "P8",
+      "evidence": [
+        "set_status writes active-low LED values but setup never configures LED_R, LED_G, or LED_B as outputs",
+        "Runtime exports an LED sink only when the corresponding MCU pin is in OUTPUT mode"
+      ],
+      "unlocks": "Exports the BUSY, GOOD, and FAILED GPIO sink states to the electrical solver",
+      "operations": [
+        {
+          "type": "replace_once",
+          "old": "  // GPIO\n  set_status(BUSY);\n  pinMode(PIN_BTN_TEST, INPUT_PULLUP);\n",
+          "new": "  // GPIO\n  pinMode(PIN_LED_R, OUTPUT);\n  pinMode(PIN_LED_G, OUTPUT);\n  pinMode(PIN_LED_B, OUTPUT);\n  set_status(BUSY);\n  pinMode(PIN_BTN_TEST, INPUT_PULLUP);\n"
+        }
+      ]
+    },
+    {
+      "id": "BOARD_LED_POWER_AND_RESISTORS",
+      "artifact": "electrical_overlay",
+      "surface": "external_fixture",
+      "peel": "P8",
+      "evidence": [
+        "BoardModel copper connectivity shows D3.1 is not joined to the main +3.3V path",
+        "LED_R, LED_G, and LED_B physical nets contain D3 and U2 with no current-limiting resistor",
+        "The corrected downstream fixture must repair both the common-anode feed and per-color series resistance"
+      ],
+      "unlocks": "Provides a current-limited 3.3V path for each physical LED die without altering the original PCB",
+      "operations": [
+        {
+          "type": "replace_once",
+          "old": "led_anode_path_ohm=0\nled_red_series_ohm=0\nled_green_series_ohm=0\nled_blue_series_ohm=0\n",
+          "new": "led_anode_path_ohm=1\nled_red_series_ohm=330\nled_green_series_ohm=330\nled_blue_series_ohm=330\n"
+        }
+      ]
+    },
+    {
+      "id": "BOARD_LED_COLOR_MAPPING",
+      "artifact": "electrical_overlay",
+      "surface": "external_fixture",
+      "peel": "P8",
+      "evidence": [
+        "Broadcom ASMB-KTF0-0A306-DS100 defines pin 2 as red cathode, pin 3 as green cathode, and pin 4 as blue cathode",
+        "The PCB connects D3.2 to LED_B, D3.3 to LED_G, and D3.4 to LED_R"
+      ],
+      "unlocks": "Corrects the red/blue cathode swap in the downstream repaired-board fixture",
+      "operations": [
+        {
+          "type": "replace_once",
+          "old": "use_identity_led_mapping=0\n",
+          "new": "use_identity_led_mapping=1\n"
+        }
+      ]
+    },
+    {
       "id": "FW_SD_WRITE_CHECKS",
       "artifact": "firmware",
       "surface": "firmware",
@@ -283,13 +339,6 @@
       "peel": "P3",
       "reason": "GpsReceiver does not consume UBX_SAFEBOOT or UBX_RST_N GPIO mode and level, so the current simulator cannot provide a causal acquisition witness.",
       "required_fidelity": "Model NEO-M8 reset and safeboot pins from runtime GPIO state before admitting a reachability claim."
-    },
-    {
-      "id": "FW_LED_AND_BOARD_PATH",
-      "surface": "firmware_and_pcb",
-      "peel": "P8",
-      "reason": "Runtime::led_state observes only GPIO mode and value and does not solve the isolated common-anode copper path or missing series resistance.",
-      "required_fidelity": "Complete Q3 closed-loop MCU drive export and KiCad-derived solved-level feedback before admitting P8."
     }
   ]
 }

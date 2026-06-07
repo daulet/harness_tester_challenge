@@ -1,5 +1,18 @@
 # Simulator realism lessons
 
+## 2026-06-07 - Net agreement does not validate selected-part semantics
+
+- Symptom: the schematic and PCB consistently connected `LED_B` to D3 pad 2
+  and `LED_R` to pad 4, so an earlier review rejected the color swap.
+- Root cause: both artifacts reused the same footprint/net assumption; the
+  selected ASMB-KTF0-0A306 datasheet independently defines pad 2 as red cathode
+  and pad 4 as blue cathode.
+- Source evidence: official Broadcom selected-part pinout, D3 PCB pad nets, and
+  the P8 leave-one-color-mapping-out current witness.
+- Permanent rule: validate symbol and footprint pin semantics against the exact
+  selected component datasheet; schematic/PCB agreement proves consistency,
+  not physical correctness.
+
 ## 2026-06-07 - Storage witnesses must exercise the deciding byte
 
 - Symptom: a partial-write test failed during the timestamp body, so it could

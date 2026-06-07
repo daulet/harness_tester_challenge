@@ -23,6 +23,7 @@ i2c_sda_pullup_ohm=1e12
 i2c_sda_pulldown_ohm=100000
 i2c_scl_pullup_ohm=1e12
 i2c_scl_pulldown_ohm=100000
+led_anode_path_ohm=1
 led_red_series_ohm=330
 led_green_series_ohm=330
 led_blue_series_ohm=330

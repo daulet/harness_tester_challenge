@@ -90,6 +90,12 @@
       "expected": "exactly two sessions"
     },
     {
+      "id": "led_status_closed_loop",
+      "board_fixture": "KiCad-derived D3 connectivity plus generated current-limited overlay",
+      "states": ["BUSY", "GOOD", "FAILED"],
+      "expected": "ngspice current selects blue, green, and red respectively only when firmware modes, power path, resistors, and color mapping are all repaired"
+    },
+    {
       "id": "sd_partial_record",
       "board_fixture": "source-derived schematic-ideal J3-to-U4 routing",
       "sd_capacity_bytes": [12, 24, 25],

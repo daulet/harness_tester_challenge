@@ -71,5 +71,7 @@ assertion because shifting an `int` by 32 or more is undefined behavior.
 The complete current suite, including the ngspice matrix, passes 41/41 tests.
 
 One earlier candidate, A24, was removed from this review after rechecking the
-rotated D3 symbol. The actual schematic and PCB both map `LED_B` to D3 pin 2
-and `LED_R` to D3 pin 4, so there is no supported red/blue swap claim here.
+rotated D3 symbol. That rejection compared only the schematic and PCB and is
+now superseded by BP-T001 in `BLOCKER_PEELING_THEORY_LOG.md`: Broadcom's
+selected-part datasheet defines D3 pin 2 as red cathode and pin 4 as blue
+cathode, opposite the design's color labels.
