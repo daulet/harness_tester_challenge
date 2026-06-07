@@ -1,5 +1,15 @@
 # Simulator realism lessons
 
+## 2026-06-07 - Reviewer input must include untracked implementation files
+
+- Symptom: a diff-only reviewer could assess CMake wiring while missing newly
+  created generator, catalog, oracle, and test files.
+- Root cause: plain `git diff` excludes untracked files.
+- Source evidence: blocker-peeling pass-end review saw references to the new
+  files but not their contents.
+- Permanent rule: pass-end reviewer input includes tracked diffs plus explicit
+  `/dev/null` diffs for every untracked pass file.
+
 ## 2026-06-05 - A passing witness can be causally empty
 
 - Symptom: `bug_a06_all_outputs` passed even if `set_output()` did nothing.

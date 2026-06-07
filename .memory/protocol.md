@@ -11,6 +11,10 @@ variants may isolate downstream behavior but may not silently become the oracle.
 
 - Work the highest-leverage open item in `.memory/TODO.md` whose prerequisites
   are complete.
+- The blocker-peeling campaign is a generated exposure layer. Original
+  firmware and KiCad sources are immutable inputs; every repair is declarative,
+  every generated artifact is hashed, and every admitted observation keeps the
+  repaired blockers explicit.
 - Each implementation pass must retire one complete vertical slice. Inventory,
   wrappers, or reviewer discussion alone do not close an implementation pass.
 - New work discovered outside the active slice is added to the board rather
@@ -40,6 +44,10 @@ variants may isolate downstream behavior but may not silently become the oracle.
   fresh process with only the goal, diff, validation, and relevant evidence.
 - Source decides disagreements. Material findings are fixed and rereviewed
   before commit.
+- Blocker-peeling bug candidates receive independent source/spec,
+  simulator-fidelity, and root-cause reviews. Each review invokes Claude CLI
+  non-interactively with a disproof-first prompt. CLI failure or timeout is
+  recorded as unavailable, never as approval.
 
 ## Validation ladder
 
@@ -82,3 +90,6 @@ variants may isolate downstream behavior but may not silently become the oracle.
 
 Continue until `.memory/TODO.md` has no open legal work, the user redirects, or
 an incident stop requires external hardware/tool access that is unavailable.
+For blocker peeling, completion additionally requires every P0-P9 peel,
+counterfactual controls, campaign expansion, candidate adjudication, and the
+artifacts named in the root `goal.md`.

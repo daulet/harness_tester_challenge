@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "sources": {
+    "firmware": "firmware/firmware.ino",
+    "pcb": "kicad_files/hardware_challenge.kicad_pcb"
+  },
+  "immutable_sources": {
+    "driver": "firmware/CY8C9560.cpp",
+    "driver_header": "firmware/CY8C9560.h",
+    "schematic": "kicad_files/hardware_challenge.kicad_sch"
+  },
+  "repairs": [
+    {
+      "id": "FW_EXPANDER_BEGIN",
+      "artifact": "firmware",
+      "surface": "firmware",
+      "peel": "P1",
+      "evidence": [
+        "firmware/firmware.ino omits CY8C9560::begin()",
+        "firmware/CY8C9560.cpp shows begin() owns reset and Wire2 startup"
+      ],
+      "unlocks": "Attempts physical I2C access to the expander",
+      "operations": [
+        {
+          "type": "replace_once",
+          "old": "  // SD card\n",
+          "new": "  // Expander\n  (void) cy.begin();\n\n  // SD card\n"
+        }
+      ]
+    },
+    {
+      "id": "PCB_I2C_SDA_PULLUP",
+      "artifact": "pcb",
+      "surface": "pcb",
+      "peel": "P2",
+      "evidence": [
+        "R3 pad 1 is GND and pad 2 is CY_SDA in the PCB source",
+        "Runtime physical I2C mode treats that topology as SDA stuck low"
+      ],
+      "unlocks": "Allows physical-mode I2C transactions",
+      "operations": [
+        {
+          "type": "replace_after",
+          "anchors": [
+            "(property \"Reference\" \"R3\"",
+            "(pad \"1\""
+          ],
+          "old": "(net 2 \"GND\")",
+          "new": "(net 5 \"+3.3V\")",
+          "max_distance": 400
+        }
+      ]
+    },
+    {
+      "id": "PCB_UART_CROSS",
+      "artifact": "pcb",
+      "surface": "pcb",
+      "peel": "P3",
+      "evidence": [
+        "U2 RX1 shares UBX-RXD with U3 RXD",
+        "U2 TX1 shares UBX-TXD with U3 TXD"
+      ],
+      "unlocks": "Routes GPS TXD to Teensy RX1 and Teensy TX1 to GPS RXD",
+      "operations": [
+        {
+          "type": "replace_after",
+          "anchors": [
+            "(property \"Reference\" \"U2\"",
+            "(pad \"2\""
+          ],
+          "old": "(net 64 \"UBX-RXD\")",
+          "new": "(net 74 \"UBX-TXD\")",
+          "max_distance": 500
+        },
+        {
+          "type": "replace_after",
+          "anchors": [
+            "(property \"Reference\" \"U2\"",
+            "(pad \"3\""
+          ],
+          "old": "(net 74 \"UBX-TXD\")",
+          "new": "(net 64 \"UBX-RXD\")",
+          "max_distance": 500
+        }
+      ]
+    },
+    {
+      "id": "FW_ACCEPT_GNRMC",
+      "artifact": "firmware",
+      "surface": "firmware",
+      "peel": "P3",
+      "evidence": [
+        "GpsReceiver concurrent mode emits $GNRMC by default",
+        "firmware/firmware.ino accepts only the $GPRMC prefix"
+      ],
+      "unlocks": "Allows the default concurrent-GNSS RMC talker ID",
+      "operations": [
+        {
+          "type": "replace_once",
+          "old": "  if (strncmp(buf, \"$GPRMC\", 6) == 0) {\n",
+          "new": "  if (strncmp(buf, \"$GPRMC\", 6) == 0 ||\n      strncmp(buf, \"$GNRMC\", 6) == 0) {\n"
+        },
+        {
+          "type": "replace_once",
+          "old": "    if (sscanf(buf, \"$GPRMC,%10[^,],%*c,%*f,%*c,%*f,%*c,%*f,%*f,%6[^,]\", utc_time, date) == 2 && !time_fixed) {\n",
+          "new": "    if (sscanf(buf + 6, \",%10[^,],%*c,%*f,%*c,%*f,%*c,%*f,%*f,%6[^,]\", utc_time, date) == 2 && !time_fixed) {\n"
+        }
+      ]
+    },
+    {
+      "id": "FW_NMEA_BOUNDS",
+      "artifact": "firmware",
+      "surface": "firmware",
+      "peel": "P3",
+      "evidence": [
+        "The default modeled GPS stream contains a sentence longer than 64 bytes before RMC",
+        "sanitizer_a03_default_gps_sentence_overflow proves the unchanged staging overflow"
+      ],
+      "unlocks": "Allows bounded processing to continue through the default RMC sentence",
+      "operations": [
+        {
+          "type": "replace_once",
+          "old": "char nmea_buf[64];\n",
+          "new": "char nmea_buf[128];\n"
+        },
+        {
+          "type": "replace_once",
+          "old": "    nmea_buf[nmea_idx++] = UBX_SERIAL.read();\n",
+          "new": "    const char next = UBX_SERIAL.read();\n    if (nmea_idx >= static_cast<int>(sizeof(nmea_buf) - 1)) {\n      nmea_idx = 0;\n    }\n    nmea_buf[nmea_idx++] = next;\n"
+        }
+      ]
+    }
+  ],
+  "deferred_repairs": [
+    {
+      "id": "FW_GNSS_CONTROL_OUTPUTS",
+      "surface": "firmware",
+      "peel": "P3",
+      "reason": "GpsReceiver does not consume UBX_SAFEBOOT or UBX_RST_N GPIO mode and level, so the current simulator cannot provide a causal acquisition witness.",
+      "required_fidelity": "Model NEO-M8 reset and safeboot pins from runtime GPIO state before admitting a reachability claim."
+    }
+  ]
+}

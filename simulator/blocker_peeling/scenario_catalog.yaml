@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "scenarios": [
+    {
+      "id": "baseline_default_gps",
+      "gps": {
+        "model": "NEO-M8 default concurrent constellation",
+        "acquisition_time_us": 0,
+        "poll_period_us": 5000,
+        "duration_us": 2500000
+      },
+      "i2c_mode": "physical",
+      "button_physically_pressed": true
+    },
+    {
+      "id": "i2c_attempt_default_gps",
+      "gps": {
+        "model": "NEO-M8 default concurrent constellation",
+        "acquisition_time_us": 0,
+        "poll_period_us": 5000,
+        "duration_us": 2500000
+      },
+      "i2c_mode": "physical",
+      "button_physically_pressed": true
+    },
+    {
+      "id": "i2c_reachable_default_gps",
+      "gps": {
+        "model": "NEO-M8 default concurrent constellation",
+        "acquisition_time_us": 0,
+        "poll_period_us": 5000,
+        "duration_us": 2500000
+      },
+      "i2c_mode": "physical",
+      "button_physically_pressed": true
+    },
+    {
+      "id": "normal_default_gps",
+      "gps": {
+        "model": "NEO-M8 default concurrent constellation",
+        "acquisition_time_us": 0,
+        "poll_period_us": 5000,
+        "duration_us": 2500000
+      },
+      "i2c_mode": "physical",
+      "button_physically_pressed": true
+    },
+    {
+      "id": "normal_default_gps_sanitized",
+      "gps": {
+        "model": "NEO-M8 default concurrent constellation",
+        "acquisition_time_us": 0,
+        "poll_period_us": 5000,
+        "duration_us": 2500000
+      },
+      "i2c_mode": "physical",
+      "button_physically_pressed": true,
+      "sanitizer": "address"
+    }
+  ]
+}

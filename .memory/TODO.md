@@ -1,5 +1,28 @@
 # Active simulator realism board
 
+## BP - Blocker-peeling discovery campaign
+
+- [x] **Done:** implement the initial P0-P3 generated repair lattice.
+  - End-state: declarative repair/dependency/scenario catalogs generate
+    deterministic variants and manifests without modifying source inputs.
+  - Required witnesses: P1 Wire startup with physical SDA failure, P2 expander
+    reachability, P3 default modeled GPS lock, and leave-one-repair-out
+    counterfactuals including an ASan no-bounds witness.
+  - Owner: `simulator/blocker_peeling/`, oracle source, CMake, and tests.
+  - Completion: deterministic generation and immutable-source manifests,
+    independent oracle, P0-P3 variants, leave-one-out controls, positive and
+    negative ASan witnesses, 15/15 targeted CTests, and direct Claude
+    pass-end review PASS after two findings were corrected.
+- [ ] **Next:** implement P4-P9 generated repairs and counterfactuals.
+  - Prerequisite: initial P0-P3 lattice complete.
+- [ ] Add the full generated harness, peripheral, and sequence campaigns plus
+  delta minimization.
+  - Prerequisite: P4-P9 and Q3 closed-loop all-channel behavior.
+- [ ] Run three-role, direct-Claude disproof councils for every candidate and
+  produce the accepted, rejected, disputed, exposure-matrix, and final-report
+  artifacts from `goal.md`.
+  - Prerequisite: campaign candidates and minimal witnesses.
+
 ## Q0 - Campaign bootstrap
 
 - [x] **Done:** promote the first-pass analog notes to a Tier 3 protocol,

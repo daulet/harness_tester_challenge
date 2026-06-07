@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.16)
 project(harness_tester_simulator LANGUAGES CXX)
 
 include(CheckCXXSourceCompiles)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -12,6 +13,7 @@ add_library(host_simulator
   simulator/src/analog.cpp
   simulator/src/board.cpp
   simulator/src/gps.cpp
+  simulator/src/oracle.cpp
   simulator/src/runtime.cpp
 )
 
@@ -72,6 +74,106 @@ add_firmware_case(firmware_original_cases firmware/firmware.ino)
 add_firmware_case(firmware_unmasked_cases simulator/variants/firmware_unmasked.ino)
 add_bug_evidence_case(firmware_original_bug_cases firmware/firmware.ino)
 add_bug_evidence_case(firmware_unmasked_bug_cases simulator/variants/firmware_unmasked.ino)
+
+set(BLOCKER_PEELING_OUTPUT_DIR "${CMAKE_BINARY_DIR}/blocker_peeling")
+set(BLOCKER_PEELING_GENERATOR
+  "${CMAKE_CURRENT_SOURCE_DIR}/simulator/blocker_peeling/generate_variants.py"
+)
+set(BLOCKER_PEELING_CATALOGS
+  "${CMAKE_CURRENT_SOURCE_DIR}/simulator/blocker_peeling/repair_catalog.yaml"
+  "${CMAKE_CURRENT_SOURCE_DIR}/simulator/blocker_peeling/dependency_graph.yaml"
+  "${CMAKE_CURRENT_SOURCE_DIR}/simulator/blocker_peeling/scenario_catalog.yaml"
+)
+set(BLOCKER_PEELING_VARIANTS
+  P0
+  P1
+  P1_without_FW_EXPANDER_BEGIN
+  P2
+  P2_without_PCB_I2C_SDA_PULLUP
+  P3
+  P3_without_FW_EXPANDER_BEGIN
+  P3_without_PCB_I2C_SDA_PULLUP
+  P3_without_PCB_UART_CROSS
+  P3_without_FW_ACCEPT_GNRMC
+  P3_without_FW_NMEA_BOUNDS
+)
+
+set(BLOCKER_PEELING_BYPRODUCTS
+  "${BLOCKER_PEELING_OUTPUT_DIR}/variant_manifest.jsonl"
+)
+foreach(variant IN LISTS BLOCKER_PEELING_VARIANTS)
+  list(APPEND BLOCKER_PEELING_BYPRODUCTS
+    "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/firmware/firmware.ino"
+    "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/kicad_files/hardware_challenge.kicad_pcb"
+    "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/variant.generated.json"
+  )
+endforeach()
+
+add_custom_command(
+  OUTPUT "${BLOCKER_PEELING_OUTPUT_DIR}/.generated.stamp"
+  COMMAND
+    "${Python3_EXECUTABLE}" "${BLOCKER_PEELING_GENERATOR}"
+    --root "${CMAKE_CURRENT_SOURCE_DIR}"
+    --output "${BLOCKER_PEELING_OUTPUT_DIR}"
+  DEPENDS
+    "${BLOCKER_PEELING_GENERATOR}"
+    ${BLOCKER_PEELING_CATALOGS}
+    "${CMAKE_CURRENT_SOURCE_DIR}/firmware/firmware.ino"
+    "${CMAKE_CURRENT_SOURCE_DIR}/firmware/CY8C9560.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/firmware/CY8C9560.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/kicad_files/hardware_challenge.kicad_pcb"
+    "${CMAKE_CURRENT_SOURCE_DIR}/kicad_files/hardware_challenge.kicad_sch"
+  BYPRODUCTS ${BLOCKER_PEELING_BYPRODUCTS}
+  VERBATIM
+)
+add_custom_target(generate_blocker_peeling_variants
+  DEPENDS "${BLOCKER_PEELING_OUTPUT_DIR}/.generated.stamp"
+)
+
+function(add_blocker_peeling_case target variant)
+  set(firmware_source
+    "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/firmware/firmware.ino"
+  )
+  set_source_files_properties(${firmware_source} PROPERTIES
+    GENERATED TRUE
+    LANGUAGE CXX
+    COMPILE_OPTIONS "-x;c++"
+  )
+  add_executable(${target}
+    simulator/tests/blocker_peeling_cases.cpp
+    ${firmware_source}
+    firmware/CY8C9560.cpp
+  )
+  add_dependencies(${target} generate_blocker_peeling_variants)
+  target_link_libraries(${target} PRIVATE host_simulator)
+  target_compile_definitions(${target} PRIVATE
+    HOST_SIM_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
+    BLOCKER_VARIANT_DIR="${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}"
+    BLOCKER_VARIANT_ID="${variant}"
+  )
+  target_compile_options(${target} PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+  )
+endfunction()
+
+add_blocker_peeling_case(blocker_p0 P0)
+add_blocker_peeling_case(blocker_p1 P1)
+add_blocker_peeling_case(
+  blocker_p1_without_begin P1_without_FW_EXPANDER_BEGIN)
+add_blocker_peeling_case(blocker_p2 P2)
+add_blocker_peeling_case(
+  blocker_p2_without_pullup P2_without_PCB_I2C_SDA_PULLUP)
+add_blocker_peeling_case(blocker_p3 P3)
+add_blocker_peeling_case(
+  blocker_p3_without_begin P3_without_FW_EXPANDER_BEGIN)
+add_blocker_peeling_case(
+  blocker_p3_without_pullup P3_without_PCB_I2C_SDA_PULLUP)
+add_blocker_peeling_case(
+  blocker_p3_without_uart P3_without_PCB_UART_CROSS)
+add_blocker_peeling_case(
+  blocker_p3_without_gnrmc P3_without_FW_ACCEPT_GNRMC)
 
 function(check_sanitizer_available sanitizer result)
   set(saved_required_flags "${CMAKE_REQUIRED_FLAGS}")
@@ -158,6 +260,16 @@ add_executable(runtime_cases
 target_link_libraries(runtime_cases PRIVATE host_simulator)
 target_compile_definitions(runtime_cases PRIVATE
   HOST_SIM_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
+)
+
+add_executable(oracle_cases
+  simulator/tests/oracle_cases.cpp
+)
+target_link_libraries(oracle_cases PRIVATE host_simulator)
+target_compile_options(oracle_cases PRIVATE
+  -Wall
+  -Wextra
+  -Wpedantic
 )
 
 add_executable(uart_cases
@@ -259,6 +371,50 @@ target_compile_options(analog_cases PRIVATE
 enable_testing()
 add_test(NAME pcb_source_parity COMMAND board_model_cases)
 add_test(NAME runtime_defaults COMMAND runtime_cases)
+add_test(NAME blocker_peeling_oracle COMMAND oracle_cases)
+add_test(
+  NAME blocker_peeling_generator_integrity
+  COMMAND
+    "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/simulator/blocker_peeling/test_generator.py"
+    --root "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+add_test(
+  NAME blocker_peeling_manifest_verify
+  COMMAND
+    "${Python3_EXECUTABLE}" "${BLOCKER_PEELING_GENERATOR}"
+    --root "${CMAKE_CURRENT_SOURCE_DIR}"
+    --output "${BLOCKER_PEELING_OUTPUT_DIR}"
+    --verify
+)
+add_test(NAME blocker_peeling_p0 COMMAND blocker_p0)
+add_test(NAME blocker_peeling_p1 COMMAND blocker_p1)
+add_test(
+  NAME blocker_peeling_p1_without_begin
+  COMMAND blocker_p1_without_begin
+)
+add_test(NAME blocker_peeling_p2 COMMAND blocker_p2)
+add_test(
+  NAME blocker_peeling_p2_without_pullup
+  COMMAND blocker_p2_without_pullup
+)
+add_test(NAME blocker_peeling_p3 COMMAND blocker_p3)
+add_test(
+  NAME blocker_peeling_p3_without_begin
+  COMMAND blocker_p3_without_begin
+)
+add_test(
+  NAME blocker_peeling_p3_without_pullup
+  COMMAND blocker_p3_without_pullup
+)
+add_test(
+  NAME blocker_peeling_p3_without_uart
+  COMMAND blocker_p3_without_uart
+)
+add_test(
+  NAME blocker_peeling_p3_without_gnrmc
+  COMMAND blocker_p3_without_gnrmc
+)
 add_test(NAME uart_timing_and_topology COMMAND uart_cases)
 add_test(NAME button_and_reset_timing COMMAND timing_cases)
 add_test(NAME i2c_timing_and_faults COMMAND i2c_cases)
@@ -325,6 +481,35 @@ add_test(NAME bug_a20_logical_index_gap COMMAND firmware_unmasked_bug_cases a20_
 add_test(NAME bug_a21_leds_never_become_outputs COMMAND firmware_original_bug_cases a21_leds_never_become_outputs)
 add_test(NAME bug_a23_held_gate_relogs COMMAND firmware_unmasked_bug_cases a23_held_gate_relogs)
 if(HOST_SIM_HAS_ASAN)
+  add_blocker_peeling_case(blocker_p3_asan P3)
+  target_compile_options(blocker_p3_asan PRIVATE
+    -fno-omit-frame-pointer
+    -fsanitize=address
+  )
+  target_link_options(blocker_p3_asan PRIVATE
+    -fno-omit-frame-pointer
+    -fsanitize=address
+  )
+  add_test(NAME blocker_peeling_p3_asan
+    COMMAND blocker_p3_asan normal-default-gps)
+  add_blocker_peeling_case(
+    blocker_p3_without_bounds_asan P3_without_FW_NMEA_BOUNDS)
+  target_compile_options(blocker_p3_without_bounds_asan PRIVATE
+    -fno-omit-frame-pointer
+    -fsanitize=address
+  )
+  target_link_options(blocker_p3_without_bounds_asan PRIVATE
+    -fno-omit-frame-pointer
+    -fsanitize=address
+  )
+  add_test(NAME blocker_peeling_p3_without_bounds
+    COMMAND ${CMAKE_COMMAND}
+      -DPROGRAM=$<TARGET_FILE:blocker_p3_without_bounds_asan>
+      -DCASE=normal-default-gps
+      -DSANITIZER_ENV=ASAN_OPTIONS=halt_on_error=1:abort_on_error=1:detect_leaks=0
+      -DEXPECTED_1=global-buffer-overflow
+      -DEXPECTED_2=nmea_buf
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/simulator/tests/expect_sanitizer_failure.cmake)
   add_test(NAME sanitizer_a03_nmea_overflow
     COMMAND ${CMAKE_COMMAND}
       -DPROGRAM=$<TARGET_FILE:firmware_asan_cases>
@@ -341,6 +526,16 @@ if(HOST_SIM_HAS_ASAN)
       -DEXPECTED_1=global-buffer-overflow
       -DEXPECTED_2=nmea_buf
       -P ${CMAKE_CURRENT_SOURCE_DIR}/simulator/tests/expect_sanitizer_failure.cmake)
+else()
+  add_test(NAME blocker_peeling_p3_asan
+    COMMAND "${Python3_EXECUTABLE}" -c
+      "import sys; print('AddressSanitizer unavailable'); sys.exit(77)")
+  set_tests_properties(blocker_peeling_p3_asan PROPERTIES SKIP_RETURN_CODE 77)
+  add_test(NAME blocker_peeling_p3_without_bounds
+    COMMAND "${Python3_EXECUTABLE}" -c
+      "import sys; print('AddressSanitizer unavailable'); sys.exit(77)")
+  set_tests_properties(blocker_peeling_p3_without_bounds
+    PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 if(HOST_SIM_HAS_UBSAN)
   add_test(NAME sanitizer_a05_narrow_shift

@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "peels": [
+    {
+      "id": "P0",
+      "requires": [],
+      "repairs": [],
+      "invariant": "The unchanged source remains the baseline."
+    },
+    {
+      "id": "P1",
+      "requires": ["P0"],
+      "repairs": ["FW_EXPANDER_BEGIN"],
+      "invariant": "Wire2 starts, while the as-drawn SDA pull-down still prevents expander access."
+    },
+    {
+      "id": "P2",
+      "requires": ["P1"],
+      "repairs": ["FW_EXPANDER_BEGIN", "PCB_I2C_SDA_PULLUP"],
+      "invariant": "Physical-mode I2C reaches the expander."
+    },
+    {
+      "id": "P3",
+      "requires": ["P2"],
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS"
+      ],
+      "invariant": "Frequent polling of the source-backed default GPS stream reaches a time lock while physical I2C remains reachable."
+    }
+  ],
+  "variants": [
+    {"id": "P0", "repairs": [], "scenario_ids": ["baseline_default_gps"]},
+    {"id": "P1", "repairs": ["FW_EXPANDER_BEGIN"], "scenario_ids": ["i2c_attempt_default_gps"]},
+    {
+      "id": "P1_without_FW_EXPANDER_BEGIN",
+      "repairs": [],
+      "counterfactual_for": "FW_EXPANDER_BEGIN",
+      "scenario_ids": ["i2c_attempt_default_gps"]
+    },
+    {
+      "id": "P2",
+      "repairs": ["FW_EXPANDER_BEGIN", "PCB_I2C_SDA_PULLUP"],
+      "scenario_ids": ["i2c_reachable_default_gps"]
+    },
+    {
+      "id": "P2_without_PCB_I2C_SDA_PULLUP",
+      "repairs": ["FW_EXPANDER_BEGIN"],
+      "counterfactual_for": "PCB_I2C_SDA_PULLUP",
+      "scenario_ids": ["i2c_reachable_default_gps"]
+    },
+    {
+      "id": "P3",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS"
+      ],
+      "scenario_ids": ["normal_default_gps"]
+    },
+    {
+      "id": "P3_without_FW_EXPANDER_BEGIN",
+      "repairs": [
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS"
+      ],
+      "counterfactual_for": "FW_EXPANDER_BEGIN",
+      "scenario_ids": ["normal_default_gps"]
+    },
+    {
+      "id": "P3_without_PCB_I2C_SDA_PULLUP",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS"
+      ],
+      "counterfactual_for": "PCB_I2C_SDA_PULLUP",
+      "scenario_ids": ["normal_default_gps"]
+    },
+    {
+      "id": "P3_without_PCB_UART_CROSS",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS"
+      ],
+      "counterfactual_for": "PCB_UART_CROSS",
+      "scenario_ids": ["normal_default_gps"]
+    },
+    {
+      "id": "P3_without_FW_ACCEPT_GNRMC",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_NMEA_BOUNDS"
+      ],
+      "counterfactual_for": "FW_ACCEPT_GNRMC",
+      "scenario_ids": ["normal_default_gps"]
+    },
+    {
+      "id": "P3_without_FW_NMEA_BOUNDS",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC"
+      ],
+      "counterfactual_for": "FW_NMEA_BOUNDS",
+      "scenario_ids": ["normal_default_gps_sanitized"]
+    }
+  ]
+}
