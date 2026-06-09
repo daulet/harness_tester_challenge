@@ -11,8 +11,11 @@
 
 extern void setup();
 extern void loop();
+extern void log_result(bool passed);
 extern bool time_fixed;
 extern int nmea_idx;
+extern char utc_time[];
+extern char date[];
 extern std::uint64_t EXPECTED_CONNECTIONS[];
 
 namespace {
@@ -29,6 +32,8 @@ constexpr const char* kValidGnrmc =
     "$GNRMC,123519,A,0,N,0,E,0,0,230394\r\n";
 constexpr const char* kBadChecksumGprmc =
     "$GPRMC,123519,A,0,N,0,E,0,0,230394*00\r\n";
+constexpr const char* kPostLockPartialGprmc =
+    "$GPRMC,235959.00,V,,,,,,,060626,,,N,V*02\r\n";
 constexpr const char* kTxtThenGprmc =
     "$GPTXT,01,01,02,u-blox ag - www.u-blox.com*50\r\n"
     "$GPRMC,123519,A,0,N,0,E,0,0,230394\r\n";
@@ -233,6 +238,36 @@ bool run_a04_checksum_ignored() {
               "bad-checksum GPRMC did not produce a time-lock message");
 }
 
+bool run_post_lock_timestamp_tearing() {
+  auto runtime = make_runtime();
+  runtime->set_button_pressed(true);
+  runtime->inject_serial1_rx_bypass_capacity(kValidGprmc);
+  setup();
+  loop();
+
+  bool ok = require(time_fixed,
+                    "post-lock tear: initial valid RMC did not establish time") &&
+      require(std::string(utc_time) == "123519",
+              "post-lock tear: initial UTC time was not committed") &&
+      require(std::string(date) == "230394",
+              "post-lock tear: initial date was not committed");
+
+  runtime->inject_serial1_rx_bypass_capacity(kPostLockPartialGprmc);
+  loop();
+  loop();
+  log_result(false);
+
+  ok &= require(std::string(utc_time) == "235959.00",
+                "post-lock tear: partial RMC did not overwrite UTC time");
+  ok &= require(std::string(date) == "230394",
+                "post-lock tear: partial RMC unexpectedly updated the date");
+  ok &= require(
+      contains(runtime->sd_content("results.txt"),
+               "230394 - 235959.00: Failed"),
+      "post-lock tear: log did not combine the old date with the new time");
+  return ok;
+}
+
 bool run_nmea_crlf_empty_pass() {
   auto runtime = make_runtime(expected_harness());
   runtime->set_button_pressed(true);
@@ -254,13 +289,13 @@ bool run_nmea_crlf_empty_pass() {
 bool run_sd_partial_log_accepted() {
   auto runtime = make_runtime(expected_harness());
   host_sim::SdCardConfig config;
-  config.capacity_bytes = 17;
+  config.successful_write_calls_before_failure = 4;
   runtime->configure_sd(config);
   prepare_for_test(*runtime, kValidGprmc);
   return require(runtime->sd_content("results.txt") == "230394 - 123519: ",
-                 "SD capacity did not truncate the firmware log") &&
+                 "SD write-call failure did not truncate the firmware log") &&
       require(!contains(runtime->serial_output(), "Failed to open log file"),
-              "firmware detected a short write it never checks");
+              "firmware detected a failed write call it never checks");
 }
 
 bool run_sd_removed_before_open() {
@@ -280,10 +315,11 @@ bool run_a06_all_outputs() {
   auto runtime = make_runtime();
   CY8C9560 driver;
   driver.begin();
+  driver.set_pd_inputs(~std::uint64_t{0});
   bool ok = true;
   for (std::size_t port = 0; port < 8; ++port) {
     ok &= require(runtime->expander_direction(port) == 0xFF,
-                  "A06: expander did not begin with every port as input");
+                  "A06: prior probe state did not leave every port as input");
   }
   driver.set_output(1ULL << 3, 1ULL << 3);
   for (std::size_t port = 0; port < 8; ++port) {
@@ -399,6 +435,9 @@ bool run_case(const std::string& name) {
   if (name == "uart_polling_control") return run_uart_polling_control();
   if (name == "a04_invalid_status_accepted") return run_a04_invalid_status_accepted();
   if (name == "a04_checksum_ignored") return run_a04_checksum_ignored();
+  if (name == "post_lock_timestamp_tearing") {
+    return run_post_lock_timestamp_tearing();
+  }
   if (name == "nmea_crlf_empty_pass") {
     return run_nmea_crlf_empty_pass();
   }

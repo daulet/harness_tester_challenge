@@ -85,6 +85,20 @@ int main() {
   {
     host_sim::Runtime runtime(board_model());
     host_sim::SdCardConfig config;
+    config.successful_write_calls_before_failure = 2;
+    runtime.configure_sd(config);
+    ok &= require(host_sim::SD.begin(BUILTIN_SDCARD),
+                  "write-fault SD card did not initialize");
+    auto file = host_sim::SD.open("failure.txt", FILE_WRITE);
+    ok &= require(file.print("ab") == 2 && file.print("cd") == 2 &&
+                      file.print("ef") == 0 && file.print("gh") == 0 &&
+                      runtime.sd_content("failure.txt") == "abcd",
+                  "persistent SD write-call failure did not occur at boundary");
+  }
+
+  {
+    host_sim::Runtime runtime(board_model());
+    host_sim::SdCardConfig config;
     config.write_byte_time = 100us;
     runtime.configure_sd(config);
     ok &= require(host_sim::SD.begin(BUILTIN_SDCARD),

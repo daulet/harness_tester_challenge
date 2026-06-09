@@ -138,6 +138,92 @@ bool run_a29_u4_wrong_footprint() {
               "A29: PCB U4 did not use the 12 mm TQFP footprint");
 }
 
+bool run_c7_10u_0402_on_12v() {
+  const auto model = board_model();
+  const auto& c7 = model.component("C7");
+  const auto pad1 = model.pad("C7", "1").net;
+  const auto pad2 = model.pad("C7", "2").net;
+  return require(c7.schematic_value == "10u" && c7.pcb_value == "10u",
+                 "C7: source did not select 10 uF") &&
+      require(c7.schematic_footprint.find("C_0402_1005Metric") !=
+                  std::string::npos &&
+                  c7.pcb_footprint.find("C_0402_1005Metric") !=
+                      std::string::npos,
+              "C7: source did not assign an EIA-0402 footprint") &&
+      require((pad1 == "+12V" && pad2 == "GND") ||
+                  (pad2 == "+12V" && pad1 == "GND"),
+              "C7: capacitor was not directly across +12V and GND");
+}
+
+bool run_max2679_rfin_missing_input_network() {
+  const auto model = board_model();
+  const auto antenna_net = model.pad("AE1", "1").net;
+  return require(antenna_net == model.pad("U5", "B1").net,
+                 "MAX2679 input: antenna did not connect directly to RFIN") &&
+      require(has_exact_references(model.physical_nets().at(antenna_net),
+                                   {"AE1", "U5"}),
+              "MAX2679 input: an unexpected DC-block or matching component "
+              "was present on RFIN");
+}
+
+bool run_max2679_rfout_series_inductor() {
+  const auto model = board_model();
+  const auto rfout_net = model.pad("U5", "A2").net;
+  const auto after_l1 = model.pad("L1", "1").net;
+  const auto after_c5 = model.pad("C5", "1").net;
+  return require(rfout_net == model.pad("L1", "2").net,
+                 "MAX2679 output: RFOUT did not feed L1 directly") &&
+      require(after_l1 == model.pad("C5", "2").net,
+              "MAX2679 output: L1 did not remain series-connected to C5") &&
+      require(after_c5 == model.pad("U3", "11").net,
+              "MAX2679 output: C5 did not feed NEO-M8 RF_IN") &&
+      require(model.component("L1").schematic_value == "12n" &&
+                  model.component("L1").pcb_value == "12n",
+              "MAX2679 output: series inductor was not 12 nH");
+}
+
+bool run_antenna_feed_reference_void() {
+  const auto model = board_model();
+  const auto antenna_net = model.pad("AE1", "1").net;
+  constexpr double feed_x = 134.5;
+  constexpr double feed_y = 77.0;
+  return require(model.has_copper_at(antenna_net, "F.Cu", feed_x, feed_y),
+                 "antenna feed: expected routed RF copper was absent") &&
+      require(!model.has_copper_at("GND", "In1.Cu", feed_x, feed_y) &&
+                  !model.has_copper_at("GND", "In2.Cu", feed_x, feed_y) &&
+                  !model.has_copper_at("GND", "B.Cu", feed_x, feed_y),
+              "antenna feed: a local ground reference unexpectedly existed");
+}
+
+bool run_antenna_patch_counterpoise_absent() {
+  const auto model = board_model();
+  constexpr double center_x = 132.0;
+  constexpr double center_y = 77.0;
+  return require(!model.has_copper_at("GND", "F.Cu", center_x, center_y) &&
+                     !model.has_copper_at("GND", "In1.Cu", center_x, center_y) &&
+                     !model.has_copper_at("GND", "In2.Cu", center_x, center_y) &&
+                     !model.has_copper_at("GND", "B.Cu", center_x, center_y),
+                 "patch antenna: ground counterpoise unexpectedly existed "
+                 "under the antenna center");
+}
+
+bool run_teensy_vin_vusb_unisolated() {
+  const auto model = board_model();
+  return require(model.pad("U2", "48").net == "+5V",
+                 "Teensy power: VIN was not tied to the carrier +5V rail") &&
+      require(model.pad("U2", "49").net.rfind("unconnected-", 0) == 0,
+              "Teensy power: VUSB was not left unconnected on the carrier");
+}
+
+bool run_neo_m8_safeboot_reserved_pin_connected() {
+  const auto model = board_model();
+  const auto safeboot_net = model.pad("U3", "1").net;
+  return require(!safeboot_net.empty(),
+                 "NEO-M8 SAFEBOOT: reserved pin was left open") &&
+      require(safeboot_net == model.pad("U2", "5").net,
+              "NEO-M8 SAFEBOOT: reserved pin did not connect to the Teensy");
+}
+
 bool run_case(const std::string& name) {
   if (name == "a05_narrow_masks") return run_a05_narrow_masks();
   if (name == "a10_uart_same_direction") return run_a10_uart_same_direction();
@@ -147,6 +233,19 @@ bool run_case(const std::string& name) {
   if (name == "a18_lna_vcc_rf") return run_a18_lna_vcc_rf();
   if (name == "a25_reverse_polarity_path") return run_a25_reverse_polarity_path();
   if (name == "a29_u4_wrong_footprint") return run_a29_u4_wrong_footprint();
+  if (name == "c7_10u_0402_on_12v") return run_c7_10u_0402_on_12v();
+  if (name == "max2679_rfin_missing_input_network")
+    return run_max2679_rfin_missing_input_network();
+  if (name == "max2679_rfout_series_inductor")
+    return run_max2679_rfout_series_inductor();
+  if (name == "antenna_feed_reference_void")
+    return run_antenna_feed_reference_void();
+  if (name == "antenna_patch_counterpoise_absent")
+    return run_antenna_patch_counterpoise_absent();
+  if (name == "teensy_vin_vusb_unisolated")
+    return run_teensy_vin_vusb_unisolated();
+  if (name == "neo_m8_safeboot_reserved_pin_connected")
+    return run_neo_m8_safeboot_reserved_pin_connected();
   throw std::runtime_error("unknown scenario case: " + name);
 }
 

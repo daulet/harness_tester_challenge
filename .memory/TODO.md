@@ -116,7 +116,7 @@
 - [x] **Done:** add NEO-M8 startup/default sentence cadence/checksum behavior.
   - Prerequisite: event queue and timed UART.
 - [x] **Done:** add SD/FAT latency, capacity, removal, FILE_WRITE append
-  semantics, and partial-write failures.
+  semantics, and all-or-zero write-call failures.
   - Prerequisite: event queue.
 - [x] **Done:** model finite Teensy UART RX capacity, overrun accounting, and firmware
   polling under continuous default GPS traffic.

@@ -161,6 +161,47 @@
       ]
     },
     {
+      "id": "FW_RMC_STATUS_ONLY",
+      "artifact": "firmware",
+      "surface": "firmware",
+      "peel": "experimental",
+      "evidence": [
+        "The original parser discards the RMC A/V status with %*c",
+        "This counterfactual adds only a status check and leaves checksum handling unchanged"
+      ],
+      "unlocks": "Separates status validation from checksum validation",
+      "operations": [
+        {
+          "type": "replace_once",
+          "old": "    if (sscanf(buf + 6, \",%10[^,],%*c,%*f,%*c,%*f,%*c,%*f,%*f,%6[^,]\", utc_time, date) == 2 && !time_fixed) {\n",
+          "new": "    char parsed_time[20] = {};\n    char parsed_date[20] = {};\n    char status = 0;\n    if (sscanf(buf + 6, \",%10[^,],%c,%*f,%*c,%*f,%*c,%*f,%*f,%6[^,]\", parsed_time, &status, parsed_date) == 3 && status == 'A' && !time_fixed) {\n      strcpy(utc_time, parsed_time);\n      strcpy(date, parsed_date);\n"
+        }
+      ]
+    },
+    {
+      "id": "FW_RMC_CHECKSUM_ONLY",
+      "artifact": "firmware",
+      "surface": "firmware",
+      "peel": "experimental",
+      "evidence": [
+        "The original parser never verifies the NMEA checksum",
+        "This counterfactual adds only checksum validation and continues discarding status"
+      ],
+      "unlocks": "Separates checksum validation from status validation",
+      "operations": [
+        {
+          "type": "replace_once",
+          "old": "void process_nmea(char *buf, int len) {\n",
+          "new": "int nmea_checksum_hex(char value) {\n  if (value >= '0' && value <= '9') return value - '0';\n  if (value >= 'A' && value <= 'F') return value - 'A' + 10;\n  if (value >= 'a' && value <= 'f') return value - 'a' + 10;\n  return -1;\n}\n\nbool nmea_checksum_only_valid(const char *sentence) {\n  const char *separator = strchr(sentence, '*');\n  if (!separator || separator == sentence || separator[1] == 0 || separator[2] == 0) return false;\n  uint8_t checksum = 0;\n  for (const char *cursor = sentence + 1; cursor < separator; cursor++) checksum ^= static_cast<uint8_t>(*cursor);\n  const int high = nmea_checksum_hex(separator[1]);\n  const int low = nmea_checksum_hex(separator[2]);\n  return high >= 0 && low >= 0 && checksum == static_cast<uint8_t>((high << 4) | low);\n}\n\nvoid process_nmea(char *buf, int len) {\n"
+        },
+        {
+          "type": "replace_once",
+          "old": "    if (sscanf(buf + 6, \",%10[^,],%*c,%*f,%*c,%*f,%*c,%*f,%*f,%6[^,]\", utc_time, date) == 2 && !time_fixed) {\n",
+          "new": "    if (nmea_checksum_only_valid(buf) && sscanf(buf + 6, \",%10[^,],%*c,%*f,%*c,%*f,%*c,%*f,%*f,%6[^,]\", utc_time, date) == 2 && !time_fixed) {\n"
+        }
+      ]
+    },
+    {
       "id": "DRIVER_PROBE_DIRECTIONS",
       "artifact": "driver",
       "surface": "firmware",
@@ -214,6 +255,24 @@
           "type": "replace_once",
           "old": "    for (int j = 0; j < NUM_HARNESS_PINS; j++) DBG_SERIAL.printf(\"%d\", (values & (1 << j)) ? 1 : 0);\n",
           "new": "    for (int j = 0; j < NUM_HARNESS_PINS; j++) DBG_SERIAL.printf(\"%d\", (values & (1ULL << j)) ? 1 : 0);\n"
+        }
+      ]
+    },
+    {
+      "id": "FW_OUTPUT_MASK_64BIT_ONLY",
+      "artifact": "firmware",
+      "surface": "firmware",
+      "peel": "experimental",
+      "evidence": [
+        "Counterfactual repair changes only the probe stimulus shift",
+        "The unchanged debug/readback shift remains available for an independent UBSan witness"
+      ],
+      "unlocks": "Reaches the debug/readback expression with a valid 64-bit output mask",
+      "operations": [
+        {
+          "type": "replace_once",
+          "old": "    uint64_t output_mask = 1 << i;\n",
+          "new": "    uint64_t output_mask = 1ULL << i;\n"
         }
       ]
     },

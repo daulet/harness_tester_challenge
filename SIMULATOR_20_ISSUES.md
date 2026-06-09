@@ -220,24 +220,25 @@ optical brightness, manufacturing yield, or production readiness.
 
 **A06 - `set_output()` writes all ports to output** is a real source defect, but
 it remains outside the numbered selection only to preserve the requested exact
-20. The corrected runtime initializes every expander direction register to the
-documented input state `0xFF`; `bug_a06_all_outputs` asserts that pre-state,
-executes `set_output()`, and observes all eight registers transition to `0x00`.
+20. The corrected runtime models the documented POR direction `0x00`, output
+latch `0xFF`, and pull-up mode. `bug_a06_all_outputs` establishes the all-input
+state left by a prior probe, executes `set_output()`, and observes all eight
+direction registers transition to `0x00`.
 
-## Rejected former twenty-second candidate
+## Corrected storage finding
 
-**SD-01 - SD write failures are silently accepted** remains a true source
-observation but is no longer admitted. Target-stack review found that Teensy
-SdFat write calls return either the requested length or zero, while deferred
-media failure can surface only during `close()`/`sync()` and the public
-`File.close()` API discards that result. The old byte-granular 12-byte witness
-was therefore a simulator-fidelity gap. The corrected simulator retains an
-all-or-zero conditional-failure witness, but the candidate requires full,
-removed, or failing external media and does not increase the submission count.
+The former byte-granular **SD-01** witness remains rejected because Teensy
+SdFat small writes return either the requested length or zero. Campaign
+**C006-01** replaces it with a target-faithful all-or-zero call-boundary fault:
+the first four complete calls store `230394 - 123519: `, a persistent injected
+media fault makes the result and newline calls return zero, and firmware ignores
+those return counts. The simulator does not claim FAT allocation geometry. A
+final direct-Claude chair accepted C006-01 as a new root distinct from
+`SD.open()` failure.
 
 ## Simulator review repairs now covered
 
-- A06 uses a source-correct reset state and a causal pre/action/post witness.
+- A06 uses source-correct POR state and a causal prior-probe/action/post witness.
 - A03 and A05 execute unchanged firmware under ASan and UBSan with exact
   diagnostic matching.
 - A25 diagnostics now label D1 pad 1 as cathode/raw input and pad 2 as

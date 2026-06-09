@@ -22,6 +22,7 @@ struct SdCardState {
   bool available = true;
   bool initialized = false;
   std::size_t used_bytes = 0;
+  std::size_t successful_write_calls = 0;
   std::uint64_t next_transition_sequence = 0;
   std::unordered_map<std::string, std::string> files;
   std::vector<SdPresenceTransition> transitions;
@@ -343,7 +344,9 @@ std::size_t File::write_bytes(const std::string &bytes) {
   }
   const auto card = handle_->card;
   if (!card->available || !card->initialized ||
-      card->used_bytes >= card->config.capacity_bytes) {
+      card->used_bytes >= card->config.capacity_bytes ||
+      card->successful_write_calls >=
+          card->config.successful_write_calls_before_failure) {
     return 0;
   }
 
@@ -377,6 +380,7 @@ std::size_t File::write_bytes(const std::string &bytes) {
       scaled_duration(written, card->config.write_byte_time, "SD write time"));
   card->files[handle_->path].append(bytes.data(), written);
   card->used_bytes += written;
+  ++card->successful_write_calls;
   return written;
 }
 
@@ -1114,7 +1118,8 @@ bool Runtime::expander_available() const {
 void Runtime::reset_expander_state(bool reset_asserted) {
   expander_ = {};
   expander_.reset_asserted = reset_asserted;
-  expander_.directions.fill(0xFF);
+  expander_.outputs.fill(0xFF);
+  expander_.directions.fill(0x00);
   for (auto &bank : expander_.drive_modes) {
     bank.fill(0x00);
   }

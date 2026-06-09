@@ -950,11 +950,12 @@ bool drives_high(const ExpanderPinDrive& drive) {
   if (drive.is_input) {
     return drive.drive_mode == DriveMode::PullUp;
   }
-  if (drive.drive_mode == DriveMode::Strong || drive.drive_mode == DriveMode::SlowStrong) {
+  if (drive.drive_mode == DriveMode::PullUp ||
+      drive.drive_mode == DriveMode::PullDown ||
+      drive.drive_mode == DriveMode::OpenDrainHigh ||
+      drive.drive_mode == DriveMode::Strong ||
+      drive.drive_mode == DriveMode::SlowStrong) {
     return drive.output_value;
-  }
-  if (drive.drive_mode == DriveMode::OpenDrainHigh) {
-    return true;
   }
   return false;
 }

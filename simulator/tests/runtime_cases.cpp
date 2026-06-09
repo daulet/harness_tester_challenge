@@ -42,6 +42,16 @@ int main() {
   const auto power_on_id = runtime.i2c_read(0x20, 1);
   ok &= require(power_on_id.size() == 1 && power_on_id[0] == 0x60,
                 "power-on expander did not expose POR register state");
+  ok &= require(runtime.i2c_write(0x20, {0x08}),
+                "power-on expander did not accept output register select");
+  const auto power_on_output = runtime.i2c_read(0x20, 1);
+  ok &= require(power_on_output.size() == 1 && power_on_output[0] == 0xFF,
+                "expander output reset default did not match");
+  ok &= require(runtime.i2c_write(0x20, {0x00}),
+                "power-on expander did not accept input register select");
+  const auto power_on_input = runtime.i2c_read(0x20, 1);
+  ok &= require(power_on_input.size() == 1 && power_on_input[0] == 0xFF,
+                "power-on pull-up pins did not resolve high");
   ok &= require(runtime.expander_pin_drive(0).drive_mode ==
                     host_sim::DriveMode::PullUp,
                 "power-on expander did not restore the factory pull-up mode");
@@ -79,7 +89,7 @@ int main() {
   ok &= require(runtime.i2c_write(0x20, {0x1C}),
                 "expander did not accept direction register select after reset");
   const auto direction = runtime.i2c_read(0x20, 1);
-  ok &= require(direction.size() == 1 && direction[0] == 0xFF,
+  ok &= require(direction.size() == 1 && direction[0] == 0x00,
                 "expander direction reset default did not match");
 
   std::vector<int> order;

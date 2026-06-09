@@ -393,3 +393,324 @@ wording belongs in `BLOCKER_PEELING_ACCEPTED.md`.
   for the accepted A03 witness, while cumulative variant `P9_RMC_VALIDATED`
   includes `FW_NMEA_BOUNDS` and defines `char nmea_buf[128]`, matching the
   campaign declaration. The exact reviewed patch is commit `03f25ad`.
+
+## Campaign C006 - Intended-workflow expansion
+
+Date: 2026-06-08.
+
+This campaign expands beyond bounded topology and metamorphic audits into
+production workflows implied by the README. All test and repair changes are
+confined to the simulator worktree and generated variants. `firmware/` and
+`kicad_files/` remain unchanged.
+
+### C006-01 - Unchecked post-open SD write-call failure
+
+- **Status:** ACCEPTED AS A NEW ROOT by final direct-Claude chair.
+- **Thesis:** `log_result()` checks only `SD.open()`. It discards the return
+  count from each subsequent `print()` and `println()`, then calls a public
+  `void close()`. A result can therefore be reported and displayed as complete
+  after later write calls return zero.
+- **Corrected target model:** Teensy SD forwards SdFat's all-or-zero result for
+  each individual write call. The witness no longer uses the rejected
+  byte-granular partial-write model.
+- **Minimal reproduction:** inject a persistent write-call fault after four
+  successful calls. Those calls store `230394 - 123519: `; the result and
+  line-ending calls return zero. Firmware emits no failure diagnostic. The
+  model exercises the target API's all-or-zero failure boundary and does not
+  claim FAT allocation geometry.
+- **Target-stack evidence:** Teensy `SDFile::write()` returns the underlying
+  byte count; `SDFile::close()` discards SdFat's boolean completion result.
+  SdFat `FatFile::write()` returns the full requested count or zero.
+- **Review record:** one reviewer rejected the adverse-media trigger; two
+  accepted the mechanism but incorrectly merged it into a nonexistent accepted
+  SD root. The chair was given the actual ledger and direct library evidence
+  and returned ACCEPT AS NEW ROOT. The coordinator agrees that this is distinct
+  from open failure and from the old, fidelity-invalid byte-prefix witness.
+
+### C006-02 - SD open failure leaves final RGB status GOOD
+
+- **Status:** REJECTED.
+- **Thesis:** after a passing test, `SD.open()` can fail, serial reports the
+  failure, no record is stored, and firmware still presents final GOOD.
+- **Witness:** `production_sd_open_result_divergence` reproduces the complete
+  passing scan, open failure, empty SD record, and green final status.
+- **Council:** three direct-Claude reviewers accepted simulator causality but
+  rejected admission. The RGB state is defined as the harness verdict, not a
+  transactional storage-health indicator; USB serial diagnoses the failure;
+  the trigger is an adverse external-media condition.
+- **Coordinator:** agrees with REJECT. Preserve as distinct from C006-01; do
+  not merge it into the accepted post-open write-call root.
+
+### C006-03 - No runtime harness-profile selection
+
+- **Status:** REJECTED.
+- **Thesis:** one compiled `EXPECTED_CONNECTIONS` table cannot directly test
+  the README's more than 40 harness types.
+- **Controls:** `production_alternate_profile_fixed_oracle` rejects an alternate
+  topology; `production_alternate_profile_retargeted_oracle` passes when the
+  generated build is retargeted to that topology.
+- **Council:** three direct-Claude reviewers rejected the product invariant.
+  The README does not require runtime profile selection, and per-SKU fixture or
+  firmware builds remain a reasonable implementation.
+- **Coordinator:** agrees with REJECT. The control proves per-build operation,
+  not a product defect.
+
+### C006-04 - NMEA append and terminator overflows as separate roots
+
+- **Status:** MERGED into the existing NMEA buffer-capacity root.
+- **Independent witnesses:** 65 non-delimiter bytes trigger ASan at the append
+  write in `loop()`. A 63-byte payload plus newline makes `len == 64`; all
+  appends are in bounds and ASan triggers at `buf[len] = 0` in `process_nmea()`.
+- **Council:** all three direct-Claude reviewers returned MERGE. They conceded
+  distinct write sites, triggers, and sanitizer stacks, but found one canonical
+  reserve-one-byte capacity fix at the append boundary removes both.
+- **Coordinator:** agrees with MERGE for root-cause accounting. Keep both tests
+  because they prove two unsafe writes and guard against partial fixes.
+
+### C006-05 - Output-mask and debug-rendering narrow shifts
+
+- **Status:** ACCEPTED AS TWO INDEPENDENT ROOTS by final direct-Claude chair.
+- **Thesis:** `1 << i` corrupts electrical stimulus for probe rows 32-39.
+  Independently, `values & (1 << j)` invokes undefined behavior and corrupts
+  serial connectivity rendering for columns 32-39.
+- **Counterfactual:** generated variant `P4_output_mask_only` changes only the
+  stimulus expression to `1ULL << i`. UBSan then aborts at the untouched debug
+  expression with `shift exponent 32`.
+- **Review record:** two first-round reviewers returned ACCEPT_SPLIT and one
+  returned MERGE. The merge vote incorrectly treated the two expressions as
+  one loop and one local correction. The final chair received the exact source
+  sites, generated single-site repair, UBSan trace, and README workflow, then
+  returned ACCEPT_SPLIT at medium-high confidence.
+- **Coordinator:** agrees. The stimulus expression controls electrical test
+  execution and verdict input. The separate rendering expression remains
+  defective after that site is repaired and corrupts the only per-connection
+  diagnostic for columns 32-39. They require two local edits and neither is a
+  downstream manifestation of the other.
+
+### C006-06 - CY8C9560 POR state modeled incorrectly
+
+- **Status:** ACCEPTED SIMULATOR FIDELITY DEFECT; not a product-bug count.
+- **Gap:** Runtime reset direction was `0xFF` and output latches were zero. The
+  official register table specifies POR direction `0x00`, output latch `0xFF`,
+  and pull-up drive mode.
+- **Correction:** Runtime now models those POR values. `runtime_defaults`
+  checks output and direction registers after reset.
+- **Manufacturer source:** Infineon,
+  <https://www.infineon.com/assets/row/public/documents/30/57/infineon-cy8c9520a-cy8c9540a-cy8c9560a-20--40--and-60-bit-i-o-expander-with-eeprom-datasheet-additionaltechnicalinformation-en.pdf>.
+- **A06 impact:** the old witness falsely claimed `set_output()` caused a
+  POR-input to all-output transition. The corrected witness establishes the
+  all-input state left by a prior probe, then proves `set_output()` writes every
+  port back to output. A06 remains source-valid.
+- **Verification:** corrected runtime, A06/A07, P4 counterfactual, and shift
+  sanitizer tests all pass.
+
+### C006-07 - RMC status and checksum omissions as separate roots
+
+- **Status:** MERGED into the existing RMC validation root.
+- **Thesis:** receiver-declared invalid status `V` and transport checksum
+  corruption violate different NMEA invariants and require different checks.
+- **Counterfactual A:** `P3_rmc_status_only` adds only status capture and
+  `status == 'A'`. It rejects checksum-valid `V` but still accepts a corrupted
+  status-`A` sentence.
+- **Counterfactual B:** `P3_rmc_checksum_only` adds only checksum verification.
+  It rejects the corrupted sentence but still accepts checksum-valid `V`.
+- **Verification:** `experimental_rmc_status_only` and
+  `experimental_rmc_checksum_only` both pass. Generated metadata identifies
+  the base source and exact single-purpose repairs.
+- **Council:** all three direct-Claude reviewers returned MERGE. They accepted
+  that the two single-purpose repairs are behaviorally independent, but found
+  one natural validate-before-commit parser root and one combined local
+  correction for the same state transition.
+- **Coordinator:** agrees with MERGE for root-cause accounting. Keep both
+  counterfactual tests because they prevent a partial validation fix.
+
+### C006-08 - Held active trigger repeats tests and statistical records
+
+- **Status:** REJECTED from the strict core; retained as a boundary theory.
+- **Thesis:** the level gate has no edge, latch, or wait-for-release state. The
+  full scan and SD append repeat on each active loop.
+- **Existing witness:** `bug_a23_held_gate_relogs`; generated P7 control runs
+  once while held and rearms only after release.
+- **Distinctness:** fixing polarity alone leaves held-press repeats; adding a
+  one-shot alone does not correct active-low polarity.
+- **Council:** all three direct-Claude reviewers returned REJECT. They accepted
+  the source mechanism, but found no explicit one-record-per-press invariant
+  and judged duplicate statistical records below the challenge's show-stopper
+  threshold.
+- **Coordinator:** agrees with the strict rejection while preserving the
+  deterministic behavior and counterfactual as boundary evidence.
+
+### C006-09 - C7 10 uF 0402 capacitor on the 12 V rail
+
+- **Status:** REJECTED.
+- **Thesis:** C7 is a 10 uF capacitor in an 0402 footprint directly across the
+  12 V input rail, so an ordinarily procured part would have inadequate voltage
+  rating or unusable DC-biased capacitance.
+- **Source witness:** `scenario_c7_10u_0402_on_12v` proves the value, footprint,
+  and rail assignment directly from the unchanged KiCad sources.
+- **Council:** three direct Opus/xhigh reviewers and a chair rejected admission.
+  The source does not select an MPN or voltage rating, so it does not prove that
+  an out-of-rating component was specified. The footprint/value combination is
+  a procurement-risk warning rather than a deterministic contradiction.
+- **Coordinator:** agrees with REJECT. The topology test is valid, but the
+  missing component-rating metadata prevents a source-backed product bug.
+
+### C006-10 - MAX2679 RF input network and RF output inductor as two roots
+
+- **Status:** MERGED into the existing MAX2679 matching-network root.
+- **Thesis:** the absent RF-input coupling/matching network and the series
+  inductor placed in the RF-output path are independent defects.
+- **Source witnesses:** `scenario_max2679_rfin_missing_input_network` and
+  `scenario_max2679_rfout_series_inductor` independently prove the two
+  topologies from the unchanged board.
+- **Council:** all initial reviewers accepted both physical observations. The
+  final chair returned MERGE at 0.75 confidence because both are manifestations
+  of one misplaced/incomplete RF matching network around U3, repaired by
+  relocating and completing that network.
+- **Coordinator:** agrees with MERGE for conservative root counting. Preserve
+  both tests because either half can remain after an incomplete layout fix.
+
+### C006-11 - Antenna-feed reference void and patch counterpoise absence
+
+- **Status:** MERGED into the existing antenna keepout/ground-reference root.
+- **Thesis:** the transmission-line reference-plane void and the absent patch
+  counterpoise should count separately.
+- **Source witnesses:** `scenario_antenna_feed_reference_void` and
+  `scenario_antenna_patch_counterpoise_absent` independently identify the feed
+  and antenna-region copper facts.
+- **Council:** the direct reviewers and final chair returned MERGE. The same
+  oversized copper keepout creates both manifestations, and restoring the
+  required ground-reference geometry repairs both.
+- **Coordinator:** agrees with MERGE. Keep the two checks as separate
+  manufacturing-layout assertions, but not as separate root causes.
+
+### C006-12 - Teensy VIN and VUSB are not isolated
+
+- **Status:** REJECTED.
+- **Thesis:** the carrier exposes both VIN and VUSB without cutting or otherwise
+  isolating the stock Teensy 4.1 power link, allowing USB and external power to
+  contend.
+- **Source witness:** `scenario_teensy_vin_vusb_unisolated` proves that VIN is
+  externally powered while the VUSB pad is left on its generated unconnected
+  net in the carrier sources.
+- **Council:** all direct reviewers rejected strict admission. The simulator
+  does not model the Teensy module's internal VIN/VUSB link, USB insertion,
+  simultaneous source voltages, or contention current, and the product
+  workflow does not require concurrent USB and external-power operation.
+- **Coordinator:** agrees with REJECT. Reopen only with a source-backed module
+  power model and an intended concurrent-power scenario.
+
+### C006-13 - NEO-M8 SAFEBOOT_N reserved pin is connected to Teensy GPIO
+
+- **Status:** REJECTED.
+- **Thesis:** U3 SAFEBOOT_N is connected to A2 and firmware configures A2 in a
+  way that can force the GNSS into safe-boot mode during startup.
+- **Source witness:** `scenario_neo_m8_safeboot_reserved_pin_connected` proves
+  the physical connection.
+- **Council:** one reviewer initially accepted using an incorrect weak-pulldown
+  premise; two rejected. The final chair rejected because standard Arduino
+  `digitalWrite(LOW)` while the pin remains INPUT disables the pull-up rather
+  than enabling a pulldown, setup occurs after GNSS startup sampling, and the
+  simulator has no Teensy drive-state, NEO internal-pull, or boot-timing model.
+- **Coordinator:** agrees with REJECT and rejects the initial acceptance. The
+  topology is real, but no causal unsafe level at the SAFEBOOT_N sampling
+  instant has been demonstrated.
+
+### C006-14 - Missing CY8C9560 I/O-access settle interval
+
+- **Status:** REJECTED after reopened blocker-peeling review.
+- **Thesis:** once the accepted mapping, mask, initialization, and direction
+  blockers are repaired, raw Port 5 is configured and sampled before the
+  CY8C9560 `TIOAccess` maximum of 2.485 ms.
+- **Initial arithmetic:** counting only 243 SCL clocks from the Port-5
+  drive-mode write through completion of its returned input byte gives
+  2.430 ms at 100 kHz. The Teensy register constants produce about 100.84 kHz,
+  apparently making the interval shorter.
+- **Direct source/spec review:** REJECT. The lower-bound calculation omitted
+  distinct START-hold and STOP-setup intervals controlled by Teensy
+  `SETHOLD=40`. Using the same source-backed timing model consistently gives
+  approximately 2.490 ms at 100.84 kHz, before software overhead, which clears
+  the 2.485 ms maximum.
+- **Direct simulator-fidelity review:** REJECT the proposed delayed-effect
+  model. The datasheet extract does not establish whether `TIOAccess` gates
+  input-register visibility, output validity, or an internal command path, and
+  it does not establish whether an eight-byte input read snapshots at START or
+  updates byte by byte. A latency knob would therefore prove its own assumption.
+- **Direct root/duplicate review:** REJECT admission while conceding a distinct
+  fix axis. It additionally required proof that clock stretching and idempotent
+  configuration writes do not close or avoid the alleged window.
+- **Coordinator:** agrees with REJECT. The source-backed START/STOP terms alone
+  disprove the claimed deficit under the candidate's latest-byte sampling
+  model, while the alternate snapshot model lacks a primary-source basis. No
+  simulator edit was made and no product bug is counted.
+
+### C006-15 - Blind firmware rediscovery after workflow expansion
+
+- **Status:** COMPLETE; NO NEW CANDIDATE.
+- **Method:** three fresh direct non-interactive Opus/xhigh passes received the
+  firmware and driver surfaces while excluding all known roots and were asked
+  to find a distinct source/spec contradiction.
+- **Result:** all three returned no new independent firmware root. Suggested
+  items were already accepted, merged, or lacked an intended-use invariant.
+- **Coordinator:** agrees. This does not close hardware, manufacturing,
+  peripheral-fidelity, or cross-layer campaigns.
+
+## Campaign C007 - Leaderboard-targeted warning and lifecycle pass
+
+Date: 2026-06-08.
+
+### C007-01 - Dedicated post-lock partial-RMC mutation witness
+
+- **Status:** MERGED into RMC validation.
+- **Test:** `bug_post_lock_timestamp_tearing`.
+- **Sequence:** establish a valid `123519/230394` lock, consume the residual
+  CRLF separator, inject a partial status-V RMC, then call the unchanged
+  `log_result(false)`.
+- **Observation:** the live UTC field becomes `235959.00`, the date remains
+  `230394`, and SD contains `230394 - 235959.00: Failed`.
+- **Council:** mechanism accepted unanimously; standalone count rejected
+  because parse-to-local plus atomic validated commit is the existing RMC
+  repair.
+
+### C007-02 - Six-candidate intended-workflow council
+
+| Candidate | Council result | Coordinator result |
+|---|---|---|
+| GPS control pins remain input-mode weak pulls | warning / merge / warning | Retain as warning, not strict. |
+| Held active trigger repeats records | warning / reject / warning | Retain as boundary warning. |
+| Reverse input forward-biases D1 | unanimous reject | Agree; intrinsic TVS behavior. |
+| Antenna feed/reference keepout | unanimous merge | Agree; one keepout root. |
+| Teensy VIN/VUSB bridge | unanimous warning | Accept warning; conditional service mode. |
+| Post-lock RMC tear | unanimous merge | Agree; broad RMC-validation root. |
+
+### C007-03 - Backup firmware/driver council
+
+| Candidate | Council result | Coordinator result |
+|---|---|---|
+| Append and terminator OOB writes count separately | unanimous merge | Agree; preserve both regressions. |
+| Probe scan drops Serial1 bytes | unanimous reject strict | Dedicated repaired-P9 witness passes; retain as warning, not strict. |
+| Ignored I2C transaction failures | unanimous reject strict | Disagree only at warning tier; exact source defect, fault-gated impact. |
+
+### C007-04 - Fresh blind post-repair firmware audit
+
+- Three independent direct non-interactive Opus/xhigh passes audited the README,
+  firmware, and CY8C driver with all known roots excluded.
+- All three returned no additional independent deterministic or
+  intended-use firmware root.
+- This is the second consecutive firmware expansion with no new candidate.
+
+### C007-05 - Repaired-P9 scan-time UART loss
+
+- **Status:** ACCEPTED AS WARNING; rejected from the strict core.
+- **Test:** `production_scan_uart_loss`.
+- **Control boundary:** runs the cumulative P9 variant, where initialization,
+  I2C, UART routing, GNSS talker handling, NMEA capacity, probe direction,
+  mapping, verdict, button, LED, and SD blockers are already repaired.
+- **Observation:** after startup traffic is drained, the witness verifies zero
+  prior overruns, advances 850 ms into a normal GPS stream, and starts a
+  button-triggered scan. The scan causes `serial1_rx_overruns() > 0` and leaves
+  the 63-byte receive ring full when it returns.
+- **Causality:** no original NMEA-capacity behavior is involved; the sole cause
+  is the 40-row blocking I2C workload not servicing `Serial1`.
+- **Council caveat:** the harness verdict is unaffected and a later GPS epoch
+  can recover, so this remains warning-tier.

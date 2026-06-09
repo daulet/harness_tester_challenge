@@ -214,7 +214,8 @@
 - Root cause: `log_result()` checks only `File` truthiness and discards every
   `print`/`println` byte count.
 - Source evidence: `bug_sd_partial_log_accepted` on unchanged firmware plus the
-  capacity and removal controls in `sd_timing_capacity_and_removal`.
+  explicit write-fault, capacity, and removal controls in
+  `sd_timing_capacity_and_removal`.
 - Permanent rule: storage witnesses must inspect operation results and the
   resulting artifact; successful initialization/open is not proof of a complete
   or durable record.

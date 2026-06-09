@@ -36,9 +36,16 @@ host_sim::Runtime make_corrected_uart_runtime() {
       pcb, data_path("kicad_files/hardware_challenge.kicad_sch")));
 }
 
-void run_nmea_overflow() {
+void run_nmea_append_overflow() {
   auto runtime = make_runtime();
   runtime.inject_serial1_rx_bypass_capacity(std::string(65, 'x'));
+  setup();
+  loop();
+}
+
+void run_nmea_terminator_overflow() {
+  auto runtime = make_runtime();
+  runtime.inject_serial1_rx_bypass_capacity(std::string(63, 'x') + "\n");
   setup();
   loop();
 }
@@ -73,13 +80,16 @@ void run_default_gps_overflow() {
 int main(int argc, char **argv) {
   if (argc != 2) {
     std::cerr << "usage: sanitizer_cases "
-                 "<nmea-overflow|narrow-shift|default-gps-overflow>\n";
+                 "<nmea-append-overflow|nmea-terminator-overflow|"
+                 "narrow-shift|default-gps-overflow>\n";
     return EXIT_FAILURE;
   }
 
   const std::string name = argv[1];
-  if (name == "nmea-overflow") {
-    run_nmea_overflow();
+  if (name == "nmea-append-overflow") {
+    run_nmea_append_overflow();
+  } else if (name == "nmea-terminator-overflow") {
+    run_nmea_terminator_overflow();
   } else if (name == "narrow-shift") {
     run_narrow_shift();
   } else if (name == "default-gps-overflow") {

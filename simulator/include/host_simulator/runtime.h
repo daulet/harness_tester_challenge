@@ -93,6 +93,8 @@ private:
 
 struct SdCardConfig {
   std::size_t capacity_bytes = std::numeric_limits<std::size_t>::max();
+  std::size_t successful_write_calls_before_failure =
+      std::numeric_limits<std::size_t>::max();
   SimTime initialization_time{};
   SimTime open_time{};
   SimTime write_byte_time{};

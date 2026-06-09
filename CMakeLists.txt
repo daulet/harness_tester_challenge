@@ -96,9 +96,12 @@ set(BLOCKER_PEELING_VARIANTS
   P3_without_PCB_UART_CROSS
   P3_without_FW_ACCEPT_GNRMC
   P3_without_FW_NMEA_BOUNDS
+  P3_rmc_status_only
+  P3_rmc_checksum_only
   P4
   P4_without_DRIVER_PROBE_DIRECTIONS
   P4_without_FW_64BIT_MASKS
+  P4_output_mask_only
   P5
   P5_without_FW_HARNESS_MAPPING
   P6
@@ -368,6 +371,39 @@ endfunction()
 
 add_blocker_peeling_persisted_corpus(
   blocker_p9_rmc_persisted_corpus none)
+
+function(add_rmc_split_case target variant)
+  set(firmware_source
+    "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/firmware/firmware.ino"
+  )
+  set(driver_source
+    "${BLOCKER_PEELING_OUTPUT_DIR}/variants/${variant}/firmware/CY8C9560.cpp"
+  )
+  set_source_files_properties(${firmware_source} PROPERTIES
+    GENERATED TRUE
+    LANGUAGE CXX
+    COMPILE_OPTIONS "-x;c++"
+  )
+  set_source_files_properties(${driver_source} PROPERTIES GENERATED TRUE)
+  add_executable(${target}
+    simulator/tests/rmc_split_cases.cpp
+    ${firmware_source}
+    ${driver_source}
+  )
+  add_dependencies(${target} generate_blocker_peeling_variants)
+  target_link_libraries(${target} PRIVATE host_simulator)
+  target_compile_definitions(${target} PRIVATE
+    HOST_SIM_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
+  )
+  target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
+endfunction()
+
+add_rmc_split_case(rmc_status_only_cases P3_rmc_status_only)
+add_rmc_split_case(rmc_checksum_only_cases P3_rmc_checksum_only)
+add_test(NAME experimental_rmc_status_only
+  COMMAND rmc_status_only_cases status-only)
+add_test(NAME experimental_rmc_checksum_only
+  COMMAND rmc_checksum_only_cases checksum-only)
 
 set(blocker_p9_metamorphic_firmware
   "${BLOCKER_PEELING_OUTPUT_DIR}/variants/P9_RMC_VALIDATED/firmware/firmware.ino"
@@ -744,6 +780,14 @@ add_test(NAME blocker_peeling_p9_line_ending_short
   COMMAND blocker_p9 sd-line-ending-repaired)
 add_test(NAME blocker_peeling_p9_full_record
   COMMAND blocker_p9 sd-full-repaired)
+add_test(NAME production_sd_open_result_divergence
+  COMMAND blocker_p9 sd-open-result-divergence)
+add_test(NAME production_scan_uart_loss
+  COMMAND blocker_p9 scan-uart-loss)
+add_test(NAME production_alternate_profile_fixed_oracle
+  COMMAND blocker_p9 alternate-profile-fixed-oracle)
+add_test(NAME production_alternate_profile_retargeted_oracle
+  COMMAND blocker_p9 alternate-profile-retargeted-oracle)
 add_test(NAME blocker_peeling_p9_without_sd_checks
   COMMAND blocker_p9_without_sd_checks sd-counterfactual)
 add_test(NAME blocker_peeling_harness_campaign
@@ -840,6 +884,19 @@ add_test(NAME scenario_a16_d3_anode_isolated COMMAND scenario_cases a16_d3_anode
 add_test(NAME scenario_a18_lna_vcc_rf COMMAND scenario_cases a18_lna_vcc_rf)
 add_test(NAME scenario_a25_reverse_polarity_path COMMAND scenario_cases a25_reverse_polarity_path)
 add_test(NAME scenario_a29_u4_wrong_footprint COMMAND scenario_cases a29_u4_wrong_footprint)
+add_test(NAME scenario_c7_10u_0402_on_12v COMMAND scenario_cases c7_10u_0402_on_12v)
+add_test(NAME scenario_max2679_rfin_missing_input_network
+  COMMAND scenario_cases max2679_rfin_missing_input_network)
+add_test(NAME scenario_max2679_rfout_series_inductor
+  COMMAND scenario_cases max2679_rfout_series_inductor)
+add_test(NAME scenario_antenna_feed_reference_void
+  COMMAND scenario_cases antenna_feed_reference_void)
+add_test(NAME scenario_antenna_patch_counterpoise_absent
+  COMMAND scenario_cases antenna_patch_counterpoise_absent)
+add_test(NAME scenario_teensy_vin_vusb_unisolated
+  COMMAND scenario_cases teensy_vin_vusb_unisolated)
+add_test(NAME scenario_neo_m8_safeboot_reserved_pin_connected
+  COMMAND scenario_cases neo_m8_safeboot_reserved_pin_connected)
 set(ANALOG_CASES
   nominal
   reverse_polarity
@@ -876,6 +933,8 @@ add_test(NAME firmware_uart_polling_control
 add_test(NAME bug_a04_invalid_status_accepted COMMAND firmware_unmasked_bug_cases a04_invalid_status_accepted)
 add_test(NAME bug_a04_checksum_ignored
   COMMAND firmware_unmasked_bug_cases a04_checksum_ignored)
+add_test(NAME bug_post_lock_timestamp_tearing
+  COMMAND firmware_original_bug_cases post_lock_timestamp_tearing)
 add_test(NAME firmware_nmea_crlf_empty_pass
   COMMAND firmware_unmasked_bug_cases nmea_crlf_empty_pass)
 add_test(NAME bug_sd_partial_log_accepted
@@ -925,7 +984,15 @@ if(HOST_SIM_HAS_ASAN)
   add_test(NAME sanitizer_a03_nmea_overflow
     COMMAND ${CMAKE_COMMAND}
       -DPROGRAM=$<TARGET_FILE:firmware_asan_cases>
-      -DCASE=nmea-overflow
+      -DCASE=nmea-append-overflow
+      -DSANITIZER_ENV=ASAN_OPTIONS=halt_on_error=1:abort_on_error=1:detect_leaks=0
+      -DEXPECTED_1=global-buffer-overflow
+      -DEXPECTED_2=nmea_buf
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/simulator/tests/expect_sanitizer_failure.cmake)
+  add_test(NAME sanitizer_a03_nmea_terminator_overflow
+    COMMAND ${CMAKE_COMMAND}
+      -DPROGRAM=$<TARGET_FILE:firmware_asan_cases>
+      -DCASE=nmea-terminator-overflow
       -DSANITIZER_ENV=ASAN_OPTIONS=halt_on_error=1:abort_on_error=1:detect_leaks=0
       -DEXPECTED_1=global-buffer-overflow
       -DEXPECTED_2=nmea_buf
@@ -947,6 +1014,21 @@ else()
     COMMAND "${Python3_EXECUTABLE}" -c
       "import sys; print('AddressSanitizer unavailable'); sys.exit(77)")
   set_tests_properties(blocker_peeling_p3_without_bounds
+    PROPERTIES SKIP_RETURN_CODE 77)
+  add_test(NAME sanitizer_a03_nmea_overflow
+    COMMAND "${Python3_EXECUTABLE}" -c
+      "import sys; print('AddressSanitizer unavailable'); sys.exit(77)")
+  set_tests_properties(sanitizer_a03_nmea_overflow
+    PROPERTIES SKIP_RETURN_CODE 77)
+  add_test(NAME sanitizer_a03_nmea_terminator_overflow
+    COMMAND "${Python3_EXECUTABLE}" -c
+      "import sys; print('AddressSanitizer unavailable'); sys.exit(77)")
+  set_tests_properties(sanitizer_a03_nmea_terminator_overflow
+    PROPERTIES SKIP_RETURN_CODE 77)
+  add_test(NAME sanitizer_a03_default_gps_sentence_overflow
+    COMMAND "${Python3_EXECUTABLE}" -c
+      "import sys; print('AddressSanitizer unavailable'); sys.exit(77)")
+  set_tests_properties(sanitizer_a03_default_gps_sentence_overflow
     PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 if(HOST_SIM_HAS_UBSAN)
@@ -985,6 +1067,27 @@ if(HOST_SIM_HAS_UBSAN)
       "-DEXPECTED_2=shift exponent 32"
       -P ${CMAKE_CURRENT_SOURCE_DIR}/simulator/tests/expect_sanitizer_failure.cmake)
 
+  add_blocker_peeling_workflow_case(
+    blocker_p4_output_mask_only_ubsan P4_output_mask_only)
+  target_compile_options(blocker_p4_output_mask_only_ubsan PRIVATE
+    -fno-omit-frame-pointer
+    -fsanitize=undefined
+    -fno-sanitize-recover=undefined
+  )
+  target_link_options(blocker_p4_output_mask_only_ubsan PRIVATE
+    -fno-omit-frame-pointer
+    -fsanitize=undefined
+    -fno-sanitize-recover=undefined
+  )
+  add_test(NAME blocker_peeling_p4_debug_shift
+    COMMAND ${CMAKE_COMMAND}
+      -DPROGRAM=$<TARGET_FILE:blocker_p4_output_mask_only_ubsan>
+      -DCASE=probe-repaired
+      -DSANITIZER_ENV=UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=0
+      "-DEXPECTED_1=runtime error:"
+      "-DEXPECTED_2=shift exponent 32"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/simulator/tests/expect_sanitizer_failure.cmake)
+
   add_test(NAME sanitizer_a05_narrow_shift
     COMMAND ${CMAKE_COMMAND}
       -DPROGRAM=$<TARGET_FILE:firmware_ubsan_cases>
@@ -1003,5 +1106,15 @@ else()
     COMMAND "${Python3_EXECUTABLE}" -c
       "import sys; print('UndefinedBehaviorSanitizer unavailable'); sys.exit(77)")
   set_tests_properties(blocker_peeling_p4_without_masks
+    PROPERTIES SKIP_RETURN_CODE 77)
+  add_test(NAME blocker_peeling_p4_debug_shift
+    COMMAND "${Python3_EXECUTABLE}" -c
+      "import sys; print('UndefinedBehaviorSanitizer unavailable'); sys.exit(77)")
+  set_tests_properties(blocker_peeling_p4_debug_shift
+    PROPERTIES SKIP_RETURN_CODE 77)
+  add_test(NAME sanitizer_a05_narrow_shift
+    COMMAND "${Python3_EXECUTABLE}" -c
+      "import sys; print('UndefinedBehaviorSanitizer unavailable'); sys.exit(77)")
+  set_tests_properties(sanitizer_a05_narrow_shift
     PROPERTIES SKIP_RETURN_CODE 77)
 endif()

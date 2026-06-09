@@ -1,4 +1,5 @@
 #include <array>
+#include <chrono>
 #include <cstdlib>
 #include <iostream>
 #include <memory>
@@ -7,6 +8,7 @@
 
 #include "Arduino.h"
 #include "CY8C9560.h"
+#include "host_simulator/gps.h"
 #include "host_simulator/oracle.h"
 #include "host_simulator/runtime.h"
 #include "blocker_peeling_harness_fixture.h"
@@ -327,6 +329,91 @@ bool run_sd_write(bool repaired, std::size_t capacity,
   return ok;
 }
 
+bool run_sd_open_result_divergence() {
+  auto runtime = make_runtime(
+      blocker_peeling_test::declared_harness(),
+      host_sim::HarnessRoutingMode::SchematicIdeal);
+  bool ok = lock_time(*runtime, true);
+  runtime->set_sd_available(false);
+  runtime->set_button_pressed(true);
+  loop();
+
+  const auto status = runtime->led_state();
+  ok &= require(contains(runtime->serial_output(), "Harness passed!"),
+                "production workflow did not complete the passing test");
+  ok &= require(contains(runtime->serial_output(), "Failed to open log file"),
+                "production workflow did not observe the SD open failure");
+  ok &= require(runtime->sd_content("results.txt").empty(),
+                "failed SD open unexpectedly persisted a result");
+  ok &= require(status.green && !status.red && !status.blue,
+                "logging failure changed the final GOOD operator status");
+  return ok;
+}
+
+bool run_scan_uart_loss() {
+  using namespace std::chrono_literals;
+
+  auto runtime = make_runtime(
+      blocker_peeling_test::declared_harness(),
+      host_sim::HarnessRoutingMode::SchematicIdeal);
+  bool ok = lock_time(*runtime, true);
+
+  host_sim::GpsReceiver receiver(*runtime);
+  host_sim::GpsReceiverConfig config;
+  config.acquisition_time = host_sim::SimTime::zero();
+  receiver.start(config);
+
+  runtime->advance_by(100ms);
+  loop();
+  loop();
+  loop();
+  runtime->advance_by(850ms);
+  ok &= require(runtime->serial1_rx_overruns() == 0,
+                "P9 UART overrun occurred before the blocking scan");
+  runtime->set_button_pressed(true);
+  loop();
+
+  ok &= require(runtime->serial1_rx_overruns() > 0,
+                "P9 scan did not overrun Serial1 while firmware was blocked");
+  ok &= require(host_sim::Serial1.available() == 63,
+                "P9 scan did not fill the Teensy Serial1 receive ring");
+  return ok;
+}
+
+host_sim::Harness alternate_harness_profile() {
+  auto harness = blocker_peeling_test::declared_harness();
+  harness.connect(0, 1);
+  return harness;
+}
+
+bool run_alternate_profile(bool retarget_oracle) {
+  const auto harness = alternate_harness_profile();
+  if (retarget_oracle) {
+    const auto observations = host_sim::HarnessOracle::observations(harness);
+    for (std::size_t row = 0; row < host_sim::kHarnessPins; ++row) {
+      EXPECTED_CONNECTIONS[row] = observations[row];
+    }
+  }
+
+  auto runtime = make_runtime(
+      harness, host_sim::HarnessRoutingMode::SchematicIdeal);
+  bool ok = lock_time(*runtime, true);
+  runtime->set_button_pressed(true);
+  loop();
+
+  ok &= require(
+      contains(runtime->serial_output(),
+               retarget_oracle ? "Harness passed!" : "Harness failed!"),
+      "alternate harness profile verdict did not match the selected oracle");
+  if (retarget_oracle) {
+    ok &= require(
+        runtime->sd_content("results.txt") ==
+            "230394 - 123519: Passed\r\n",
+        "retargeted profile did not produce the expected generic log record");
+  }
+  return ok;
+}
+
 bool run_case(const std::string &name) {
   if (name == "probe-repaired") return run_probe_directions(true);
   if (name == "probe-counterfactual") return run_probe_directions(false);
@@ -358,6 +445,16 @@ bool run_case(const std::string &name) {
   }
   if (name == "sd-full-repaired") {
     return run_sd_write(true, 25, "230394 - 123519: Failed\r\n", false);
+  }
+  if (name == "sd-open-result-divergence") {
+    return run_sd_open_result_divergence();
+  }
+  if (name == "scan-uart-loss") return run_scan_uart_loss();
+  if (name == "alternate-profile-fixed-oracle") {
+    return run_alternate_profile(false);
+  }
+  if (name == "alternate-profile-retargeted-oracle") {
+    return run_alternate_profile(true);
   }
   throw std::runtime_error("unknown blocker-peeling workflow case: " + name);
 }

@@ -228,6 +228,32 @@
       "scenario_ids": ["normal_default_gps_sanitized"]
     },
     {
+      "id": "P3_rmc_status_only",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "FW_RMC_STATUS_ONLY"
+      ],
+      "counterfactual_for": "FW_RMC_VALIDATE_ATOMIC",
+      "scenario_ids": ["normal_default_gps"]
+    },
+    {
+      "id": "P3_rmc_checksum_only",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "FW_RMC_CHECKSUM_ONLY"
+      ],
+      "counterfactual_for": "FW_RMC_VALIDATE_ATOMIC",
+      "scenario_ids": ["normal_default_gps"]
+    },
+    {
       "id": "P4",
       "repairs": [
         "FW_EXPANDER_BEGIN",
@@ -262,6 +288,20 @@
         "FW_ACCEPT_GNRMC",
         "FW_NMEA_BOUNDS",
         "DRIVER_PROBE_DIRECTIONS"
+      ],
+      "counterfactual_for": "FW_64BIT_MASKS",
+      "scenario_ids": ["complete_probe_scan_sanitized"]
+    },
+    {
+      "id": "P4_output_mask_only",
+      "repairs": [
+        "FW_EXPANDER_BEGIN",
+        "PCB_I2C_SDA_PULLUP",
+        "PCB_UART_CROSS",
+        "FW_ACCEPT_GNRMC",
+        "FW_NMEA_BOUNDS",
+        "DRIVER_PROBE_DIRECTIONS",
+        "FW_OUTPUT_MASK_64BIT_ONLY"
       ],
       "counterfactual_for": "FW_64BIT_MASKS",
       "scenario_ids": ["complete_probe_scan_sanitized"]
