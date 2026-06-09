@@ -32,18 +32,21 @@ Peripheral reachability is a separate digital transaction concern. UART uses
 finite source impedances so conflicting or overvoltage peers produce a
 measurable line voltage. Each LED channel uses a diode model, configurable
 series resistance, a current-sense source, and a firmware-controlled sink.
+The test button uses a source-derived R4 pull-up, source-derived SW1 route
+availability, a mechanical contact control, and an authored external
+short-to-ground resistance.
 
 `Runtime::analog_stimulus()` currently exports active-low RGB LED state and
-released I2C state. `Runtime::configure_electrical_feedback()` installs an
+released I2C state plus button contact intent.
+`Runtime::configure_electrical_feedback()` installs an
 `NgSpiceElectricalFeedback` implementation that derives the I2C pull network
-from the attached `BoardModel` and solves both released lines before each
-focused physical I2C transaction. Runtime consumes only the typed
+and button network from the attached `BoardModel`. Runtime consumes only the typed
 `ElectricalFeedback` snapshot contract, which permits deterministic
 counterfactuals without fabricating PCB connectivity. Solving does not advance
 simulated time. It intentionally remains uncached until future GPIO, rail-load,
 and harness feedback paths have explicit invalidation tests. Large generated
 campaigns use the faster parsed-topology path and do not fork ngspice per
-transaction.
+transaction or button read.
 
 Additional firmware-controlled electrical signals should be added through the
 same Runtime feedback path rather than bypassing the C++ control plane.

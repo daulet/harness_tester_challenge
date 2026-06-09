@@ -145,9 +145,16 @@
     controller-side pulls survive peripheral opens, which are classified as
     address NACKs. Source-derived R2 value sweeps cross High, Indeterminate, and
     Low thresholds and reach Wire START validation.
-- [ ] **Next:** extend closed-loop drive/solve/readback to MCU button GPIO and a
-  representative expander harness component, then feed solved logic levels into
-  `digitalRead()` and expander inputs.
+- [x] **Done:** feed source-derived button voltage into MCU `digitalRead()`.
+  - Completion: R4 value/rail copper and SW1 signal/ground routes derive the
+    compact button network; scheduled contact intent reaches the solver;
+    solved High/Low overrides the fast Boolean path; INPUT and INPUT_PULLUP are
+    accepted; invalid levels and output mode fail explicitly. Physical
+    missing-pull and open-switch mutations plus an external stuck-low fixture
+    are causal controls. Physical connectivity now aggregates duplicate pad
+    lands, with one-land-survives and common-route-open counterfactuals for SW1.
+- [ ] **Next:** extend closed-loop drive/solve/readback to a representative
+  expander harness component and feed solved logic levels into expander inputs.
   - Prerequisite: generated board electrical configuration and Q2 event queue.
 - [ ] Replace the representative harness channel with all 40 mapped channels,
   including per-channel opens, shorts, leakage, R/L/C, and contention.

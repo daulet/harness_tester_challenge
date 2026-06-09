@@ -129,6 +129,7 @@ public:
 private:
   std::array<HarnessChannel, kHarnessPins> channels_{};
   std::map<std::pair<std::string, std::string>, BoardPad> pads_;
+  std::set<std::pair<std::string, std::string>> duplicate_pads_;
   std::map<std::string, BoardComponent> components_;
   std::array<std::vector<std::size_t>, kHarnessPins> external_to_internal_{};
   std::map<std::string, std::size_t> io_pins_{};

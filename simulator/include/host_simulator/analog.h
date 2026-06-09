@@ -29,6 +29,8 @@ struct BoardElectricalConfig {
   double i2c_sda_pulldown_ohm = 1e12;
   double i2c_scl_pullup_ohm = 1e12;
   double i2c_scl_pulldown_ohm = 1e12;
+  double button_pullup_ohm = 1e12;
+  double button_switch_path_ohm = 1e12;
   double led_anode_path_ohm = 1e12;
   double led_red_series_ohm = 1e12;
   double led_green_series_ohm = 1e12;
@@ -38,8 +40,10 @@ struct BoardElectricalConfig {
   LedChannel physical_blue_driven_by = LedChannel::Blue;
 
   static BoardElectricalConfig i2c_from_board(const BoardModel &model);
+  static BoardElectricalConfig button_from_board(const BoardModel &model);
   static BoardElectricalConfig from_board(const BoardModel &model);
   void apply_i2c_to(AnalogFixture &fixture) const;
+  void apply_button_to(AnalogFixture &fixture) const;
   void apply_to(AnalogFixture &fixture) const;
   void map_led_stimulus(AnalogStimulus &stimulus) const;
 };
@@ -65,6 +69,7 @@ struct AnalogStimulus {
   std::optional<bool> led_blue_on;
   std::optional<bool> i2c_sda_low;
   std::optional<bool> i2c_scl_low;
+  std::optional<bool> button_contact_closed;
 };
 
 enum class ElectricalLevel {
@@ -99,6 +104,7 @@ private:
 struct ElectricalSnapshot {
   ElectricalLevel i2c_sda = ElectricalLevel::Indeterminate;
   ElectricalLevel i2c_scl = ElectricalLevel::Indeterminate;
+  ElectricalLevel button_test = ElectricalLevel::Indeterminate;
 };
 
 class ElectricalFeedback {

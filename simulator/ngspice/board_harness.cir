@@ -45,6 +45,13 @@ SSCL i2c_scl 0 scl_control 0 OPEN_DRAIN
 CI2C_SDA i2c_sda 0 100p
 CI2C_SCL i2c_scl 0 100p
 
+RBUTTON_PULLUP button_test rail33 {BUTTON_PULLUP_R}
+VBUTTON_CONTROL button_control 0 {BUTTON_CONTACT_CLOSED}
+SBUTTON button_test button_switch button_control 0 HARNESS_CONTACT
+RBUTTON_SWITCH_PATH button_switch 0 {BUTTON_SWITCH_PATH_R}
+RBUTTON_SHORT_GND button_test 0 {BUTTON_SHORT_GND_R}
+CBUTTON button_test 0 20p
+
 RLED_ANODE_PATH rail33 led_common_anode {LED_ANODE_PATH_R}
 
 VLED_RED_CONTROL led_red_control 0 {LED_RED_ON}
@@ -89,6 +96,7 @@ RUART_LOAD uart_line 0 100k
 .meas tran i2c_sda_low_v FIND v(i2c_sda) AT=1.5m
 .meas tran i2c_scl_high_v FIND v(i2c_scl) AT=0.5m
 .meas tran i2c_scl_low_v FIND v(i2c_scl) AT=1.5m
+.meas tran button_test_v FIND v(button_test) AT=0.5m
 .meas tran led_red_current_a AVG i(VLED_RED_SENSE) FROM=0.4m TO=0.8m
 .meas tran led_green_current_a AVG i(VLED_GREEN_SENSE) FROM=0.4m TO=0.8m
 .meas tran led_blue_current_a AVG i(VLED_BLUE_SENSE) FROM=0.4m TO=0.8m

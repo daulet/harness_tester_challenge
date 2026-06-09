@@ -39,6 +39,7 @@ namespace {
 Runtime *g_runtime = nullptr;
 constexpr std::uint8_t kInputMode = 0;
 constexpr std::uint8_t kOutputMode = 1;
+constexpr std::uint8_t kInputPullupMode = 2;
 constexpr std::uint64_t kMicrosecondsPerSecond = 1000000;
 constexpr std::uint64_t kUartBitsPerFrame = 10;
 constexpr unsigned long kMaximumModeledBaud = 10000000;
@@ -573,7 +574,7 @@ void Runtime::set_harness(Harness harness) { harness_ = std::move(harness); }
 void Runtime::set_button_pressed(bool pressed) { button_pressed_ = pressed; }
 
 void Runtime::schedule_button_state(bool pressed, SimTime delay) {
-  schedule_after(delay, [this, pressed] { button_pressed_ = pressed; });
+  schedule_after(delay, [this, pressed] { set_button_pressed(pressed); });
 }
 
 void Runtime::configure_serial1_rx_capacity(std::size_t capacity) {
@@ -836,6 +837,23 @@ void Runtime::digital_write(std::uint8_t pin, std::uint8_t value) {
 
 int Runtime::digital_read(std::uint8_t pin) const {
   if (pin == model_.arduino_pin("BTN_TEST")) {
+    if (electrical_feedback_) {
+      const auto mode = pin_mode(pin);
+      if (mode != kInputMode && mode != kInputPullupMode) {
+        throw std::runtime_error(
+            "button electrical feedback supports input mode only");
+      }
+      const auto level =
+          electrical_feedback_->solve(analog_stimulus()).button_test;
+      if (level == ElectricalLevel::Low) {
+        return 0;
+      }
+      if (level == ElectricalLevel::High) {
+        return 1;
+      }
+      throw std::runtime_error(
+          "BTN_TEST solved to an unsupported electrical level");
+    }
     return button_pressed_ ? 0 : 1;
   }
   const auto iter = pins_.find(pin);
@@ -1138,6 +1156,7 @@ AnalogStimulus Runtime::analog_stimulus() const {
   stimulus.led_blue_on = leds.blue;
   stimulus.i2c_sda_low = false;
   stimulus.i2c_scl_low = false;
+  stimulus.button_contact_closed = button_pressed_;
   if (Serial1.begun()) {
     stimulus.uart_tx_voltage = 3.3;
   }

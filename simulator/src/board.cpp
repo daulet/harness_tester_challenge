@@ -1249,8 +1249,14 @@ BoardModel BoardModel::load(const std::string& pcb_path,
   model.physical_nets_ = pcb.physical_nets;
   model.physical_graph_ = std::make_shared<RuntimePhysicalGraph>(build_physical_graph(pcb));
   for (const auto& pad : pcb.pads) {
-    model.pads_.emplace(std::make_pair(pad.reference, pad.pad),
-                        BoardPad{pad.reference, pad.pad, pad.net, pad.pinfunction});
+    const auto key = std::make_pair(pad.reference, pad.pad);
+    const auto inserted = model.pads_
+                              .emplace(key, BoardPad{pad.reference, pad.pad,
+                                                     pad.net, pad.pinfunction})
+                              .second;
+    if (!inserted) {
+      model.duplicate_pads_.insert(key);
+    }
   }
   model.physical_stats_.pads = pcb.pads.size();
   model.physical_stats_.tracks = pcb.segments.size();
@@ -1545,10 +1551,41 @@ bool BoardModel::pcb_connected(const std::string& net,
   if (!left || !right) {
     return false;
   }
-  if (graph->features[*left].net != net || graph->features[*right].net != net) {
+  if (graph->features[*left].net == net &&
+      graph->features[*right].net == net &&
+      graph->components[*left] == graph->components[*right]) {
+    return true;
+  }
+
+  if (!duplicate_pads_.count({left_reference, left_pad}) &&
+      !duplicate_pads_.count({right_reference, right_pad})) {
     return false;
   }
-  return graph->components[*left] == graph->components[*right];
+
+  std::vector<std::size_t> left_components;
+  std::vector<std::size_t> right_components;
+  for (std::size_t index = 0; index < graph->features.size(); ++index) {
+    const auto& feature = graph->features[index];
+    if (feature.kind != PhysicalFeature::Kind::Pad) {
+      break;
+    }
+    if (feature.net != net) {
+      continue;
+    }
+    if (feature.reference == left_reference && feature.pad == left_pad) {
+      left_components.push_back(graph->components[index]);
+    }
+    if (feature.reference == right_reference && feature.pad == right_pad) {
+      right_components.push_back(graph->components[index]);
+    }
+  }
+  for (const auto left_component : left_components) {
+    if (std::find(right_components.begin(), right_components.end(),
+                  left_component) != right_components.end()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 bool BoardModel::has_copper_at(const std::string& net,

@@ -273,6 +273,31 @@
   mutation; electrical extraction must verify the routed graph, and tests must
   separate backend fidelity from runtime integration.
 
+## 2026-06-08 - Contact intent is not GPIO voltage
+
+- Symptom: `set_button_pressed(false)` always made `digitalRead(BTN_TEST)` High,
+  even with a missing R4 pull-up or an external short to ground.
+- Root cause: the runtime treated mechanical switch intent as the electrical
+  observation and bypassed R4, SW1 routing, rail state, and competing loads.
+- Resolution: contact intent is exported as solver stimulus while the typed
+  feedback snapshot supplies the firmware-visible level. Physical removal of
+  R4 rail copper and the SW1 signal route provide separate causal controls.
+- Permanent rule: preserve actuator intent and solved observation as distinct
+  state; a closed-loop test must demonstrate disagreement between them.
+
+## 2026-06-08 - Pad numbers do not uniquely identify copper lands
+
+- Symptom: SW1 has two physical pad-1 lands and two pad-2 lands, but
+  `pcb_connected()` inspected only the first matching feature and could report a
+  false open when the other duplicate land remained routed.
+- Root cause: logical component pads and physical footprint lands were treated
+  as the same cardinality.
+- Resolution: physical connectivity now aggregates every matching
+  reference/pad-number feature and accepts any same-net connected pair. Tests
+  remove one SW1 land route and then the shared route to prove both outcomes.
+- Permanent rule: connectivity APIs must preserve one-to-many logical-pad to
+  physical-land mappings even when metadata access remains deduplicated.
+
 ## 2026-06-07 - Width-limited scans still need field-boundary validation
 
 - Symptom: `%6[^,]` copied a six-character date and reported success even when a

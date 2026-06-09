@@ -78,6 +78,9 @@ bool run_nominal() {
                      result.level("i2c_scl_low_v") ==
                          host_sim::ElectricalLevel::Low,
                  "nominal: I2C open-drain sinks did not produce low levels") &&
+         require(result.level("button_test_v") ==
+                     host_sim::ElectricalLevel::High,
+                 "nominal: released button input did not pull high") &&
          require(result.measurement("led_red_current_a") > 0.001 &&
                      result.measurement("led_red_current_a") < 0.02,
                  "nominal: LED current was outside the representative range") &&

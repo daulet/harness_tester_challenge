@@ -1,6 +1,7 @@
 #include "host_simulator/analog.h"
 #include "host_simulator/board.h"
 
+#include <algorithm>
 #include <cerrno>
 #include <cmath>
 #include <cstdlib>
@@ -48,6 +49,10 @@ const std::vector<std::string> &required_parameters() {
       "i2c_sda_pulldown_ohm",
       "i2c_scl_pullup_ohm",
       "i2c_scl_pulldown_ohm",
+      "button_pullup_ohm",
+      "button_switch_path_ohm",
+      "button_short_ground_ohm",
+      "button_contact_closed",
       "led_anode_path_ohm",
       "led_red_series_ohm",
       "led_green_series_ohm",
@@ -69,7 +74,8 @@ const std::vector<std::string> &required_measurements() {
       "harness_before_v",         "harness_during_v",    "harness_after_v",
       "harness_source_current_a", "i2c_sda_high_v",      "i2c_sda_low_v",
       "i2c_scl_high_v",           "i2c_scl_low_v",       "led_red_current_a",
-      "led_green_current_a",      "led_blue_current_a",  "uart_level_v",
+      "button_test_v",            "led_green_current_a", "led_blue_current_a",
+      "uart_level_v",
   };
   return names;
 }
@@ -239,7 +245,8 @@ bool has_suffix(const std::string &value, const std::string &suffix) {
 
 bool is_boolean_parameter(const std::string &name) {
   return name == "intermittent_enabled" || name == "led_red_on" ||
-         name == "led_green_on" || name == "led_blue_on";
+         name == "led_green_on" || name == "led_blue_on" ||
+         name == "button_contact_closed";
 }
 
 void write_parameter(std::ofstream &netlist, const std::string &spice_name,
@@ -500,9 +507,62 @@ BoardElectricalConfig BoardElectricalConfig::i2c_from_board(
   return config;
 }
 
+BoardElectricalConfig BoardElectricalConfig::button_from_board(
+    const BoardModel &model) {
+  BoardElectricalConfig config;
+  const auto &button_pull = model.component("R4");
+  if (button_pull.schematic_lib_id != "Device:R") {
+    throw std::runtime_error("unsupported R4 button pull component");
+  }
+  const auto button_pull_pads = model.pads_for_component("R4");
+  if (button_pull_pads.size() != 2) {
+    throw std::runtime_error("R4 button pull must have exactly two pads");
+  }
+  const auto button_line = std::find_if(
+      button_pull_pads.begin(), button_pull_pads.end(),
+      [](const BoardPad &pad) { return pad.net == "BTN_TEST"; });
+  const auto button_rail = std::find_if(
+      button_pull_pads.begin(), button_pull_pads.end(),
+      [](const BoardPad &pad) { return pad.net == "+3.3V"; });
+  if (button_line != button_pull_pads.end() &&
+      button_rail != button_pull_pads.end() &&
+      model.pcb_connected("BTN_TEST", "R4", button_line->pad, "U2", "10") &&
+      model.pcb_connected("+3.3V", "R4", button_rail->pad, "U2", "15")) {
+    const auto &value = button_pull.pcb_value.empty()
+        ? button_pull.schematic_value
+        : button_pull.pcb_value;
+    config.button_pullup_ohm = parse_resistance(value, "R4");
+  }
+
+  const auto &button_switch = model.component("SW1");
+  if (button_switch.schematic_lib_id != "Switch:SW_Push_Dual") {
+    throw std::runtime_error("unsupported SW1 button switch");
+  }
+  bool button_terminal_connected = false;
+  bool ground_terminal_connected = false;
+  for (const auto &pad : model.pads_for_component("SW1")) {
+    if (pad.pad == "2" && pad.net == "BTN_TEST" &&
+        model.pcb_connected("BTN_TEST", "SW1", pad.pad, "U2", "10")) {
+      button_terminal_connected = true;
+    }
+    if (pad.pad == "1" && pad.net == "GND" &&
+        model.pcb_connected("GND", "SW1", pad.pad, "U2", "1")) {
+      ground_terminal_connected = true;
+    }
+  }
+  if (button_terminal_connected && ground_terminal_connected) {
+    config.button_switch_path_ohm = 0.001;
+  }
+  return config;
+}
+
 BoardElectricalConfig BoardElectricalConfig::from_board(
     const BoardModel &model) {
   auto config = i2c_from_board(model);
+  const auto button = button_from_board(model);
+  config.button_pullup_ohm = button.button_pullup_ohm;
+  config.button_switch_path_ohm = button.button_switch_path_ohm;
+
   const auto &led = model.component("D3");
   const auto &d3_value =
       led.pcb_value.empty() ? led.schematic_value : led.pcb_value;
@@ -550,8 +610,22 @@ void BoardElectricalConfig::apply_i2c_to(AnalogFixture &fixture) const {
   fixture.parameters["i2c_scl_pulldown_ohm"] = i2c_scl_pulldown_ohm;
 }
 
+void BoardElectricalConfig::apply_button_to(AnalogFixture &fixture) const {
+  const auto validate = [](const char *name, double value) {
+    if (!std::isfinite(value) || value <= 0.0) {
+      throw std::runtime_error(std::string("invalid board electrical value: ") +
+                               name);
+    }
+  };
+  validate("button_pullup_ohm", button_pullup_ohm);
+  validate("button_switch_path_ohm", button_switch_path_ohm);
+  fixture.parameters["button_pullup_ohm"] = button_pullup_ohm;
+  fixture.parameters["button_switch_path_ohm"] = button_switch_path_ohm;
+}
+
 void BoardElectricalConfig::apply_to(AnalogFixture &fixture) const {
   apply_i2c_to(fixture);
+  apply_button_to(fixture);
   const auto validate = [](const char *name, double value) {
     if (!std::isfinite(value) || value <= 0.0) {
       throw std::runtime_error(std::string("invalid board electrical value: ") +
@@ -705,6 +779,16 @@ AnalogObservation NgSpiceSimulator::run(const AnalogFixture &fixture,
                   bool_value(stimulus.i2c_sda_low, 0.0));
   write_parameter(netlist, "SCL_FORCE_LOW",
                   bool_value(stimulus.i2c_scl_low, 0.0));
+  write_parameter(netlist, "BUTTON_PULLUP_R",
+                  fixture.parameter("button_pullup_ohm"));
+  write_parameter(netlist, "BUTTON_SWITCH_PATH_R",
+                  fixture.parameter("button_switch_path_ohm"));
+  write_parameter(netlist, "BUTTON_SHORT_GND_R",
+                  fixture.parameter("button_short_ground_ohm"));
+  write_parameter(
+      netlist, "BUTTON_CONTACT_CLOSED",
+      bool_value(stimulus.button_contact_closed,
+                 fixture.parameter("button_contact_closed")));
   write_parameter(netlist, "LED_ANODE_PATH_R",
                   fixture.parameter("led_anode_path_ohm"));
   write_parameter(netlist, "LED_RED_R",
@@ -787,13 +871,15 @@ NgSpiceElectricalFeedback::NgSpiceElectricalFeedback(
         "cannot configure electrical feedback without ngspice");
   }
   BoardElectricalConfig::i2c_from_board(model).apply_i2c_to(fixture_);
+  BoardElectricalConfig::button_from_board(model).apply_button_to(fixture_);
 }
 
 ElectricalSnapshot
 NgSpiceElectricalFeedback::solve(const AnalogStimulus &stimulus) const {
   const auto observation = simulator_.run(fixture_, stimulus);
   return {observation.level("i2c_sda_high_v"),
-          observation.level("i2c_scl_high_v")};
+          observation.level("i2c_scl_high_v"),
+          observation.level("button_test_v")};
 }
 
 } // namespace host_sim

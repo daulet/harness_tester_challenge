@@ -83,6 +83,13 @@ receiver output behavior, not RF acquisition, satellite dynamics, ephemeris,
 leap seconds, hardware FIFO/interrupt latency, or flow control.
 
 Button input changes can be scheduled as exact press/bounce/release waveforms.
+Focused electrical-feedback tests derive the external R4 pull-up and SW1 route
+from KiCad, solve the resulting `BTN_TEST` voltage, and feed Low/High back into
+`digitalRead()`. Mechanical contact intent remains separate from solved logic,
+so missing pull-up copper, an open switch route, and an external stuck-low load
+produce distinct outcomes. The fast campaign path retains direct active-low
+button intent. MCU internal pull resistance and analog bounce history are not
+modeled.
 The CY8C9560 model follows the selected silicon rather than the misleading
 `CY_RST_N` net name: XRES is active high, POR powers up deasserted with factory
 pull-ups, held-reset pins are high impedance, and the unchanged driver advances
