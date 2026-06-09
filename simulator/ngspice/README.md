@@ -26,14 +26,27 @@ resistance, and a timed contact switch.
 
 I2C uses finite-resistance pulls and open-drain switches. For source-derived
 tests, `BoardElectricalConfig` replaces the four fixture pull parameters using
-parsed two-terminal resistor values and PCB pad nets. UART uses finite source
-impedances so conflicting or overvoltage peers produce a
+parsed two-terminal resistor values, PCB pad nets, and verified copper
+connectivity from each resistor to the controller-side bus and rail endpoints.
+Peripheral reachability is a separate digital transaction concern. UART uses
+finite source impedances so conflicting or overvoltage peers produce a
 measurable line voltage. Each LED channel uses a diode model, configurable
 series resistance, a current-sense source, and a firmware-controlled sink.
 
 `Runtime::analog_stimulus()` currently exports active-low RGB LED state and
-released I2C state. Additional firmware-controlled electrical signals should be
-added there rather than bypassing the C++ control plane.
+released I2C state. `Runtime::configure_electrical_feedback()` installs an
+`NgSpiceElectricalFeedback` implementation that derives the I2C pull network
+from the attached `BoardModel` and solves both released lines before each
+focused physical I2C transaction. Runtime consumes only the typed
+`ElectricalFeedback` snapshot contract, which permits deterministic
+counterfactuals without fabricating PCB connectivity. Solving does not advance
+simulated time. It intentionally remains uncached until future GPIO, rail-load,
+and harness feedback paths have explicit invalidation tests. Large generated
+campaigns use the faster parsed-topology path and do not fork ngspice per
+transaction.
+
+Additional firmware-controlled electrical signals should be added through the
+same Runtime feedback path rather than bypassing the C++ control plane.
 
 ## Provenance
 

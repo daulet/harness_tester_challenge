@@ -1,5 +1,18 @@
 # Simulator realism lessons
 
+## 2026-06-08 - Closed-loop tests need a load-bearing counterfactual
+
+- Symptom: actual and repaired SDA tests produced the same Wire outcomes through
+  both the old R3 net matcher and the new electrical solver.
+- Root cause: agreement between model layers proves consistency, not that the
+  higher-fidelity layer changes firmware-visible behavior.
+- Source evidence: deterministic High/High feedback overrides the fast R3
+  parser and permits START, while High/SCL-Low feedback blocks START with
+  independent line attribution. Separate ngspice tests prove the actual board
+  SDA fault and source-derived SCL threshold crossings.
+- Permanent rule: every new feedback path needs a leave-one-out case where the
+  lower-fidelity model and solved result diverge.
+
 ## 2026-06-07 - Observation-only rows still require adjudication
 
 - Symptom: event campaigns reproduced button bounce, I2C fault, and SD
@@ -238,11 +251,27 @@
   though the PCB places R3 from `CY_SDA` to GND.
 - Root cause: fixture parameters duplicated resistor values and topology instead
   of consuming the existing KiCad component and pad records.
-- Source evidence: `analog_source_derived_i2c` derives R2/R3 from PCB values and
-  nets, reproduces SDA low/SCL high, and flips both config and voltage when R3's
-  value or rail net is mutated.
+- Source evidence: `analog_source_derived_i2c` derives R2/R3 from PCB values,
+  pad nets, and copper connectivity, reproduces SDA low/SCL high, follows an R3
+  value mutation, and rejects a rail-label mutation with no matching copper.
 - Permanent rule: authored electrical defaults may fill unmodeled gaps, but a
   parsed board fact overrides the corresponding fixture parameter.
+
+## 2026-06-08 - Net labels are not electrical repairs
+
+- Symptom: an early I2C counterfactual changed R3's pad net label from GND to
+  +3.3V and treated the resulting solved High as evidence for a repaired board.
+- Root cause: pull extraction trusted component pad labels without proving that
+  the pad's physical graph component reached the newly named rail.
+- Resolution: source-derived pulls now require copper continuity from the
+  resistor to the controller-side bus and rail endpoints. Peripheral
+  reachability is evaluated separately so an expander-side open produces an
+  address NACK without deleting a still-valid MCU pull. Runtime consumes a typed
+  feedback interface so High/Low integration counterfactuals do not need
+  fabricated PCB connectivity.
+- Permanent rule: a KiCad net-label mutation is not a physical topology
+  mutation; electrical extraction must verify the routed graph, and tests must
+  separate backend fidelity from runtime integration.
 
 ## 2026-06-07 - Width-limited scans still need field-boundary validation
 

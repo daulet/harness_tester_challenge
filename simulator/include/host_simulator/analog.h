@@ -37,7 +37,9 @@ struct BoardElectricalConfig {
   LedChannel physical_green_driven_by = LedChannel::Green;
   LedChannel physical_blue_driven_by = LedChannel::Blue;
 
+  static BoardElectricalConfig i2c_from_board(const BoardModel &model);
   static BoardElectricalConfig from_board(const BoardModel &model);
+  void apply_i2c_to(AnalogFixture &fixture) const;
   void apply_to(AnalogFixture &fixture) const;
   void map_led_stimulus(AnalogStimulus &stimulus) const;
 };
@@ -92,6 +94,30 @@ public:
 private:
   std::string simulator_root_;
   std::string executable_;
+};
+
+struct ElectricalSnapshot {
+  ElectricalLevel i2c_sda = ElectricalLevel::Indeterminate;
+  ElectricalLevel i2c_scl = ElectricalLevel::Indeterminate;
+};
+
+class ElectricalFeedback {
+public:
+  virtual ~ElectricalFeedback() = default;
+  virtual ElectricalSnapshot solve(const AnalogStimulus &stimulus) const = 0;
+};
+
+class NgSpiceElectricalFeedback final : public ElectricalFeedback {
+public:
+  NgSpiceElectricalFeedback(const BoardModel &model,
+                            NgSpiceSimulator simulator,
+                            AnalogFixture fixture);
+
+  ElectricalSnapshot solve(const AnalogStimulus &stimulus) const override;
+
+private:
+  NgSpiceSimulator simulator_;
+  AnalogFixture fixture_;
 };
 
 } // namespace host_sim

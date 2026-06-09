@@ -602,6 +602,20 @@ void Runtime::schedule_sd_available(bool available, SimTime delay) {
 
 void Runtime::set_i2c_bus_mode(I2cBusMode mode) { i2c_bus_mode_ = mode; }
 
+void Runtime::set_electrical_feedback(
+    std::shared_ptr<const ElectricalFeedback> feedback) {
+  if (!feedback) {
+    throw std::invalid_argument("electrical feedback must not be null");
+  }
+  electrical_feedback_ = std::move(feedback);
+}
+
+void Runtime::configure_electrical_feedback(NgSpiceSimulator simulator,
+                                            AnalogFixture fixture) {
+  set_electrical_feedback(std::make_shared<NgSpiceElectricalFeedback>(
+      model_, std::move(simulator), std::move(fixture)));
+}
+
 void Runtime::set_i2c_line_faults(bool sda_stuck_low, bool scl_stuck_low) {
   i2c_injected_sda_stuck_low_ = sda_stuck_low;
   i2c_injected_scl_stuck_low_ = scl_stuck_low;
@@ -849,10 +863,13 @@ Runtime::perform_i2c_write(std::uint8_t address,
                            std::uint32_t clock_hz, bool send_stop) {
   I2cTransfer transfer;
   const auto start = now_;
+  const auto physical_lines = i2c_bus_mode_ == I2cBusMode::Physical
+      ? physical_i2c_lines_stuck_low()
+      : std::pair<bool, bool>{false, false};
   const bool sda_stuck_low =
-      i2c_injected_sda_stuck_low_ ||
-      (i2c_bus_mode_ == I2cBusMode::Physical && physical_i2c_sda_stuck_low());
-  const bool scl_stuck_low = i2c_injected_scl_stuck_low_;
+      i2c_injected_sda_stuck_low_ || physical_lines.first;
+  const bool scl_stuck_low =
+      i2c_injected_scl_stuck_low_ || physical_lines.second;
   if (sda_stuck_low || scl_stuck_low) {
     transfer.status = I2cStatus::BusStuckLow;
     i2c_trace_.push_back({start, now_, I2cOperation::Write, transfer.status,
@@ -912,10 +929,13 @@ Runtime::I2cTransfer Runtime::perform_i2c_read(std::uint8_t address,
                                                bool send_stop) {
   I2cTransfer transfer;
   const auto start = now_;
+  const auto physical_lines = i2c_bus_mode_ == I2cBusMode::Physical
+      ? physical_i2c_lines_stuck_low()
+      : std::pair<bool, bool>{false, false};
   const bool sda_stuck_low =
-      i2c_injected_sda_stuck_low_ ||
-      (i2c_bus_mode_ == I2cBusMode::Physical && physical_i2c_sda_stuck_low());
-  const bool scl_stuck_low = i2c_injected_scl_stuck_low_;
+      i2c_injected_sda_stuck_low_ || physical_lines.first;
+  const bool scl_stuck_low =
+      i2c_injected_scl_stuck_low_ || physical_lines.second;
   if (sda_stuck_low || scl_stuck_low) {
     transfer.status = I2cStatus::BusStuckLow;
     i2c_trace_.push_back({start, now_, I2cOperation::Read, transfer.status,
@@ -960,7 +980,33 @@ Runtime::I2cTransfer Runtime::perform_i2c_read(std::uint8_t address,
   return transfer;
 }
 
-bool Runtime::physical_i2c_sda_stuck_low() const {
+std::pair<bool, bool> Runtime::physical_i2c_lines_stuck_low() const {
+  if (!electrical_feedback_) {
+    return {parsed_i2c_sda_stuck_low(), false};
+  }
+
+  const auto observation = electrical_feedback_->solve(analog_stimulus());
+  const auto sda = observation.i2c_sda;
+  const auto scl = observation.i2c_scl;
+  const auto valid = [](ElectricalLevel level) {
+    return level == ElectricalLevel::Low || level == ElectricalLevel::High;
+  };
+  if (!valid(sda) || !valid(scl)) {
+    std::string line = "SCL";
+    if (!valid(sda) && !valid(scl)) {
+      line = "SDA and SCL";
+    } else if (!valid(sda)) {
+      line = "SDA";
+    }
+    throw std::runtime_error(std::string("released I2C ") + line +
+                             " solved to an unsupported electrical level");
+  }
+  const bool sda_low = sda == ElectricalLevel::Low;
+  const bool scl_low = scl == ElectricalLevel::Low;
+  return {sda_low, scl_low};
+}
+
+bool Runtime::parsed_i2c_sda_stuck_low() const {
   const auto &first = model_.pad("R3", "1").net;
   const auto &second = model_.pad("R3", "2").net;
   return (first == "CY_SDA" && second == "GND") ||
@@ -1112,7 +1158,9 @@ AnalogObservation Runtime::simulate_analog(
 }
 
 bool Runtime::expander_available() const {
-  return Wire2.begun() && !expander_.reset_asserted;
+  return Wire2.begun() && !expander_.reset_asserted &&
+         model_.pcb_connected("CY_SCL", "U2", "16", "U4", "24") &&
+         model_.pcb_connected("CY_SDA", "U2", "17", "U4", "28");
 }
 
 void Runtime::reset_expander_state(bool reset_asserted) {

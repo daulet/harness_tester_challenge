@@ -443,7 +443,7 @@ BoardElectricalOverlay::load(const std::string &path) {
   return overlay;
 }
 
-BoardElectricalConfig BoardElectricalConfig::from_board(
+BoardElectricalConfig BoardElectricalConfig::i2c_from_board(
     const BoardModel &model) {
   std::optional<double> sda_pullup;
   std::optional<double> sda_pulldown;
@@ -457,15 +457,26 @@ BoardElectricalConfig BoardElectricalConfig::from_board(
     if (pads.size() != 2) {
       continue;
     }
-    const auto &first = pads[0].net;
-    const auto &second = pads[1].net;
-    const auto line = is_i2c_line(first) && is_pull_rail(second) ? first
-        : is_i2c_line(second) && is_pull_rail(first) ? second
-                                                    : std::string{};
-    const auto rail = line.empty() ? std::string{}
-        : line == first           ? second
-                                  : first;
+    const auto &first = pads[0];
+    const auto &second = pads[1];
+    const auto line_pad =
+        is_i2c_line(first.net) && is_pull_rail(second.net) ? &first
+        : is_i2c_line(second.net) && is_pull_rail(first.net) ? &second
+                                                            : nullptr;
+    const auto rail_pad =
+        line_pad == &first ? &second : line_pad == &second ? &first : nullptr;
+    const auto line = line_pad == nullptr ? std::string{} : line_pad->net;
+    const auto rail = rail_pad == nullptr ? std::string{} : rail_pad->net;
     if (line.empty()) {
+      continue;
+    }
+
+    const auto controller_pad = line == "CY_SDA" ? "17" : "16";
+    const auto controller_rail_pad = rail == "+3.3V" ? "15" : "1";
+    if (!model.pcb_connected(line, reference, line_pad->pad, "U2",
+                             controller_pad) ||
+        !model.pcb_connected(rail, reference, rail_pad->pad, "U2",
+                             controller_rail_pad)) {
       continue;
     }
 
@@ -486,6 +497,12 @@ BoardElectricalConfig BoardElectricalConfig::from_board(
   config.i2c_scl_pullup_ohm = scl_pullup.value_or(config.i2c_scl_pullup_ohm);
   config.i2c_scl_pulldown_ohm =
       scl_pulldown.value_or(config.i2c_scl_pulldown_ohm);
+  return config;
+}
+
+BoardElectricalConfig BoardElectricalConfig::from_board(
+    const BoardModel &model) {
+  auto config = i2c_from_board(model);
   const auto &led = model.component("D3");
   const auto &d3_value =
       led.pcb_value.empty() ? led.schematic_value : led.pcb_value;
@@ -516,7 +533,7 @@ BoardElectricalConfig BoardElectricalConfig::from_board(
   return config;
 }
 
-void BoardElectricalConfig::apply_to(AnalogFixture &fixture) const {
+void BoardElectricalConfig::apply_i2c_to(AnalogFixture &fixture) const {
   const auto validate = [](const char *name, double value) {
     if (!std::isfinite(value) || value <= 0.0) {
       throw std::runtime_error(std::string("invalid board electrical value: ") +
@@ -527,14 +544,24 @@ void BoardElectricalConfig::apply_to(AnalogFixture &fixture) const {
   validate("i2c_sda_pulldown_ohm", i2c_sda_pulldown_ohm);
   validate("i2c_scl_pullup_ohm", i2c_scl_pullup_ohm);
   validate("i2c_scl_pulldown_ohm", i2c_scl_pulldown_ohm);
-  validate("led_anode_path_ohm", led_anode_path_ohm);
-  validate("led_red_series_ohm", led_red_series_ohm);
-  validate("led_green_series_ohm", led_green_series_ohm);
-  validate("led_blue_series_ohm", led_blue_series_ohm);
   fixture.parameters["i2c_sda_pullup_ohm"] = i2c_sda_pullup_ohm;
   fixture.parameters["i2c_sda_pulldown_ohm"] = i2c_sda_pulldown_ohm;
   fixture.parameters["i2c_scl_pullup_ohm"] = i2c_scl_pullup_ohm;
   fixture.parameters["i2c_scl_pulldown_ohm"] = i2c_scl_pulldown_ohm;
+}
+
+void BoardElectricalConfig::apply_to(AnalogFixture &fixture) const {
+  apply_i2c_to(fixture);
+  const auto validate = [](const char *name, double value) {
+    if (!std::isfinite(value) || value <= 0.0) {
+      throw std::runtime_error(std::string("invalid board electrical value: ") +
+                               name);
+    }
+  };
+  validate("led_anode_path_ohm", led_anode_path_ohm);
+  validate("led_red_series_ohm", led_red_series_ohm);
+  validate("led_green_series_ohm", led_green_series_ohm);
+  validate("led_blue_series_ohm", led_blue_series_ohm);
   fixture.parameters["led_anode_path_ohm"] = led_anode_path_ohm;
   fixture.parameters["led_red_series_ohm"] = led_red_series_ohm;
   fixture.parameters["led_green_series_ohm"] = led_green_series_ohm;
@@ -750,6 +777,23 @@ AnalogObservation NgSpiceSimulator::run(const AnalogFixture &fixture,
     }
   }
   return observation;
+}
+
+NgSpiceElectricalFeedback::NgSpiceElectricalFeedback(
+    const BoardModel &model, NgSpiceSimulator simulator, AnalogFixture fixture)
+    : simulator_(std::move(simulator)), fixture_(std::move(fixture)) {
+  if (!simulator_.available()) {
+    throw std::invalid_argument(
+        "cannot configure electrical feedback without ngspice");
+  }
+  BoardElectricalConfig::i2c_from_board(model).apply_i2c_to(fixture_);
+}
+
+ElectricalSnapshot
+NgSpiceElectricalFeedback::solve(const AnalogStimulus &stimulus) const {
+  const auto observation = simulator_.run(fixture_, stimulus);
+  return {observation.level("i2c_sda_high_v"),
+          observation.level("i2c_scl_high_v")};
 }
 
 } // namespace host_sim

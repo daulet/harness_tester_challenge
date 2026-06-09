@@ -135,8 +135,18 @@
   and solve the resulting physical die currents.
   - Completion: P8 uses the Runtime GPIO state and parsed board facts rather
     than a test-authored LED stimulus.
-- [ ] **Next:** extend closed-loop drive/solve/readback beyond the LED path to
-  MCU and expander harness/I2C pins, then feed solved logic levels into
+- [x] **Done:** feed source-derived, ngspice-solved released SDA/SCL levels into
+  firmware-visible I2C START gating.
+  - Completion: the actual R3 pull-down blocks Wire through the solved Low
+    level; deterministic High/High and High/Low snapshots prove that attaching
+    feedback overrides the fast parser, permits a healthy START, and attributes
+    SCL independently. Pull extraction requires physical copper connectivity,
+    so a pad-label-only mutation is rejected rather than treated as a repair;
+    controller-side pulls survive peripheral opens, which are classified as
+    address NACKs. Source-derived R2 value sweeps cross High, Indeterminate, and
+    Low thresholds and reach Wire START validation.
+- [ ] **Next:** extend closed-loop drive/solve/readback to MCU button GPIO and a
+  representative expander harness component, then feed solved logic levels into
   `digitalRead()` and expander inputs.
   - Prerequisite: generated board electrical configuration and Q2 event queue.
 - [ ] Replace the representative harness channel with all 40 mapped channels,

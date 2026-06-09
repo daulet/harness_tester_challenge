@@ -89,11 +89,19 @@ pull-ups, held-reset pins are high impedance, and the unchanged driver advances
 through its 10 ms reset pulse plus 100 ms recovery delay in simulated time.
 
 I2C controller calls now consume bit-level bus time and report Arduino-compatible
-address-NACK, data-NACK, and other-error statuses. Physical mode derives the
-board's SDA stuck-low state from R3's parsed `CY_SDA`-to-GND pads; explicit ideal
-mode isolates downstream firmware behavior. Tests can also inject SCL/SDA
-stuck-low faults, one-shot NACKs, and deterministic clock stretching. This is a
-digital transaction model, not a rise-time, arbitration, or solved-voltage model.
+address-NACK, data-NACK, and other-error statuses. Focused physical tests can
+attach the ngspice feedback backend: Runtime derives SDA/SCL pulls from its own
+parsed board only when the resistor pads are physically connected to the bus
+at the MCU and to its rail, solves released line voltages before START, and
+feeds a typed electrical snapshot back into the firmware-visible Wire result.
+Peripheral-side SDA/SCL reachability is checked separately so a downstream open
+produces an address NACK instead of erasing a controller-side pull.
+Unsupported indeterminate or overvoltage line levels fail explicitly before
+either line can mask the other. The default fast path retains the narrow parsed
+R3-to-GND approximation for large campaigns, while explicit ideal mode isolates
+downstream firmware behavior. Tests can also inject SCL/SDA stuck-low faults,
+one-shot NACKs, and deterministic clock stretching. Neither path models rise
+time, arbitration, or bus clear.
 
 The SD shim models the firmware-used `FILE_WRITE` create/append path with
 configurable initialization/open/write/close time, finite aggregate capacity,
