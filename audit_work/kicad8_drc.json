@@ -1,0 +1,180 @@
+{
+    "$schema": "https://schemas.kicad.org/drc.v1.json",
+    "coordinate_units": "mm",
+    "date": "2026-06-06T22:13:35+0000",
+    "kicad_version": "8.0.9",
+    "schematic_parity": [
+        {
+            "description": "No pad found for pin 4 (BTN_TEST) in schematic.",
+            "items": [
+                {
+                    "description": "Footprint SW1",
+                    "pos": {
+                        "x": 173.0,
+                        "y": 37.0
+                    },
+                    "uuid": "490fe209-42d4-4693-9c3d-72a962c56cae"
+                }
+            ],
+            "severity": "warning",
+            "type": "net_conflict"
+        },
+        {
+            "description": "No pad found for pin 3 (GND) in schematic.",
+            "items": [
+                {
+                    "description": "Footprint SW1",
+                    "pos": {
+                        "x": 173.0,
+                        "y": 37.0
+                    },
+                    "uuid": "490fe209-42d4-4693-9c3d-72a962c56cae"
+                }
+            ],
+            "severity": "warning",
+            "type": "net_conflict"
+        }
+    ],
+    "source": "hardware_challenge.kicad_pcb",
+    "unconnected_items": [
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Track [+3.3V] on F.Cu, length 0.6845 mm",
+                    "pos": {
+                        "x": 167.320101,
+                        "y": 35.77484
+                    },
+                    "uuid": "d2d83f25-74e7-42e1-89dc-a5ed4edc1a76"
+                },
+                {
+                    "description": "Track [+3.3V] on F.Cu, length 0.8556 mm",
+                    "pos": {
+                        "x": 158.1,
+                        "y": 32.9
+                    },
+                    "uuid": "8934b812-4304-4354-be4e-70086ac18e16"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        }
+    ],
+    "violations": [
+        {
+            "description": "Courtyards overlap",
+            "items": [
+                {
+                    "description": "Footprint C6",
+                    "pos": {
+                        "x": 148.201022,
+                        "y": 67.222
+                    },
+                    "uuid": "0f11263b-d2c0-4023-9a0f-5d4d57dce7c7"
+                },
+                {
+                    "description": "Footprint U5",
+                    "pos": {
+                        "x": 148.1984,
+                        "y": 68.444454
+                    },
+                    "uuid": "7c490058-5908-4819-aca2-4073f70d5ccf"
+                }
+            ],
+            "severity": "error",
+            "type": "courtyards_overlap"
+        },
+        {
+            "description": "Board edge clearance violation (board setup constraints edge clearance 0.5000 mm; actual 0.4800 mm)",
+            "items": [
+                {
+                    "description": "Segment on Edge.Cuts",
+                    "pos": {
+                        "x": 119.5,
+                        "y": 98.5
+                    },
+                    "uuid": "f2d7e507-5586-456f-a97c-64f78c0c2c2f"
+                },
+                {
+                    "description": "PTH pad 1 [GND] of U2",
+                    "pos": {
+                        "x": 120.78,
+                        "y": 62.62
+                    },
+                    "uuid": "15a17779-3d59-49d7-abe4-bc7feffbbfe4"
+                }
+            ],
+            "severity": "error",
+            "type": "copper_edge_clearance"
+        },
+        {
+            "description": "Board edge clearance violation (board setup constraints edge clearance 0.5000 mm; actual 0.4800 mm)",
+            "items": [
+                {
+                    "description": "Segment on Edge.Cuts",
+                    "pos": {
+                        "x": 119.5,
+                        "y": 98.5
+                    },
+                    "uuid": "f2d7e507-5586-456f-a97c-64f78c0c2c2f"
+                },
+                {
+                    "description": "PTH pad 48 [+5V] of U2",
+                    "pos": {
+                        "x": 120.78,
+                        "y": 47.38
+                    },
+                    "uuid": "124100fb-27b5-42cc-aaca-b6fd9bf30381"
+                }
+            ],
+            "severity": "error",
+            "type": "copper_edge_clearance"
+        },
+        {
+            "description": "Footprint 'LED_ASMB-KTF0-0A306' does not match copy in library 'LED_SMD'.",
+            "items": [
+                {
+                    "description": "Footprint D3",
+                    "pos": {
+                        "x": 159.0,
+                        "y": 33.5
+                    },
+                    "uuid": "1aa5a0b2-dbf4-4281-8dd1-cd7802722bea"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_mismatch"
+        },
+        {
+            "description": "Footprint 'Vishay_PowerPAK_1212-8_Single' does not match copy in library 'Package_SO'.",
+            "items": [
+                {
+                    "description": "Footprint Q1",
+                    "pos": {
+                        "x": 143.5,
+                        "y": 32.5
+                    },
+                    "uuid": "33f7846b-21d1-4304-af10-f01a54426f20"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_mismatch"
+        },
+        {
+            "description": "Footprint 'TO-252-2' does not match copy in library 'Package_TO_SOT_SMD'.",
+            "items": [
+                {
+                    "description": "Footprint U1",
+                    "pos": {
+                        "x": 146.0,
+                        "y": 41.5
+                    },
+                    "uuid": "7d4e9ed3-971e-4be9-b9bc-3d9f76c2c387"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_mismatch"
+        }
+    ]
+}

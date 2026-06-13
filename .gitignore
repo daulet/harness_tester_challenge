@@ -1,0 +1,4 @@
+# Local audit workspace: selected report evidence is force-added explicitly.
+/audit_work/
+/c11_tmp/
+/kicad_files/sch_data.pkl

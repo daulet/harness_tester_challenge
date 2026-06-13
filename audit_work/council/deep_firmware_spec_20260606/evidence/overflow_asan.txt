@@ -1,0 +1,47 @@
+=================================================================
+==1857==ERROR: AddressSanitizer: stack-buffer-overflow on address 0x00016d04a500 at pc 0x000102db5d00 bp 0x00016d04a490 sp 0x00016d04a488
+WRITE of size 1 at 0x00016d04a500 thread T0
+    #0 0x000102db5cfc in overflow_case()+0x284 (deep_firmware_repro_asan:arm64+0x100001cfc)
+    #1 0x000102db4b00 in main+0x298 (deep_firmware_repro_asan:arm64+0x100000b00)
+    #2 0x000185e2bda0 in start+0x1b4c (dyld:arm64e+0x1fda0)
+
+Address 0x00016d04a500 is located in stack of thread T0 at offset 96 in frame
+    #0 0x000102db5a84 in overflow_case()+0xc (deep_firmware_repro_asan:arm64+0x100001a84)
+
+  This frame has 1 object(s):
+    [32, 96) 'nmea_buf' <== Memory access at offset 96 overflows this variable
+HINT: this may be a false positive if your program uses some custom stack unwind mechanism, swapcontext or vfork
+      (longjmp and C++ exceptions *are* supported)
+SUMMARY: AddressSanitizer: stack-buffer-overflow (deep_firmware_repro_asan:arm64+0x100001cfc) in overflow_case()+0x284
+Shadow bytes around the buggy address:
+  0x00016d04a280: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x00016d04a300: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x00016d04a380: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x00016d04a400: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x00016d04a480: 00 00 00 00 f1 f1 f1 f1 00 00 00 00 00 00 00 00
+=>0x00016d04a500:[f3]f3 f3 f3 00 00 00 00 00 00 00 00 00 00 00 00
+  0x00016d04a580: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x00016d04a600: 00 00 00 00 00 00 00 00 00 00 00 00 f1 f1 f1 f1
+  0x00016d04a680: 00 00 00 f3 f3 f3 f3 f3 00 00 00 00 00 00 00 00
+  0x00016d04a700: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x00016d04a780: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+Shadow byte legend (one shadow byte represents 8 application bytes):
+  Addressable:           00
+  Partially addressable: 01 02 03 04 05 06 07
+  Heap left redzone:       fa
+  Freed heap region:       fd
+  Stack left redzone:      f1
+  Stack mid redzone:       f2
+  Stack right redzone:     f3
+  Stack after return:      f5
+  Stack use after scope:   f8
+  Global redzone:          f9
+  Global init order:       f6
+  Poisoned by user:        f7
+  Container overflow:      fc
+  Array cookie:            ac
+  Intra object redzone:    bb
+  ASan internal:           fe
+  Left alloca redzone:     ca
+  Right alloca redzone:    cb
+==1857==ABORTING

@@ -1,0 +1,103 @@
+CASE INIT-01 omitted CY8C9560 initialization
+  setup calls: Serial.begin, Serial1.begin, SD.begin
+  setup calls CY8C9560::begin: no
+  library preconditions skipped: XRES pulse, Wire2.begin, Wire2.setClock(100000), device-ID read
+  first probe operation: output-register write starting at 0x08
+CASE DIR-OUT-01 set_output makes every physical GPIO an output
+  initial: all 60 physical GPIOs input/pull-down; raw15 retains strong mode from a prior probe; raw14 and raw15 connected
+  tx00 W reg=0x08 selected_before=0 status=ACK data=0040000000000000
+  tx01 W reg=0x18 selected_before=0 status=ACK data=00
+  tx02 W reg=0x1c selected_before=0 status=ACK data=00
+  tx03 W reg=0x21 selected_before=0 status=ACK data=00
+  tx04 W reg=0x18 selected_before=0 status=ACK data=01
+  tx05 W reg=0x1c selected_before=1 status=ACK data=00
+  tx06 W reg=0x21 selected_before=1 status=ACK data=40
+  tx07 W reg=0x18 selected_before=1 status=ACK data=02
+  tx08 W reg=0x1c selected_before=2 status=ACK data=00
+  tx09 W reg=0x21 selected_before=2 status=ACK data=00
+  tx10 W reg=0x18 selected_before=2 status=ACK data=03
+  tx11 W reg=0x1c selected_before=3 status=ACK data=00
+  tx12 W reg=0x21 selected_before=3 status=ACK data=00
+  tx13 W reg=0x18 selected_before=3 status=ACK data=04
+  tx14 W reg=0x1c selected_before=4 status=ACK data=00
+  tx15 W reg=0x21 selected_before=4 status=ACK data=00
+  tx16 W reg=0x18 selected_before=4 status=ACK data=05
+  tx17 W reg=0x1c selected_before=5 status=ACK data=00
+  tx18 W reg=0x21 selected_before=5 status=ACK data=00
+  tx19 W reg=0x18 selected_before=5 status=ACK data=06
+  tx20 W reg=0x1c selected_before=6 status=ACK data=00
+  tx21 W reg=0x21 selected_before=6 status=ACK data=00
+  tx22 W reg=0x18 selected_before=6 status=ACK data=07
+  tx23 W reg=0x1c selected_before=7 status=ACK data=00
+  tx24 W reg=0x21 selected_before=7 status=ACK data=00
+  final physical outputs=60 raw14=strong-high raw15=strong-low contention=yes
+  counterfactual selected-only direction outputs=1 contention=no
+CASE DIR-IN-01 set_pd_inputs disarms the selected output
+  initial: raw14 strong-high output; raw15 pull-down input; raw14 and raw15 connected
+  tx00 W reg=0x18 selected_before=0 status=ACK data=00
+  tx01 W reg=0x1c selected_before=0 status=ACK data=ff
+  tx02 W reg=0x1e selected_before=0 status=ACK data=ff
+  tx03 W reg=0x18 selected_before=0 status=ACK data=01
+  tx04 W reg=0x1c selected_before=1 status=ACK data=ff
+  tx05 W reg=0x1e selected_before=1 status=ACK data=bf
+  tx06 W reg=0x18 selected_before=1 status=ACK data=02
+  tx07 W reg=0x1c selected_before=2 status=ACK data=ff
+  tx08 W reg=0x1e selected_before=2 status=ACK data=ff
+  tx09 W reg=0x18 selected_before=2 status=ACK data=03
+  tx10 W reg=0x1c selected_before=3 status=ACK data=ff
+  tx11 W reg=0x1e selected_before=3 status=ACK data=ff
+  tx12 W reg=0x18 selected_before=3 status=ACK data=04
+  tx13 W reg=0x1c selected_before=4 status=ACK data=ff
+  tx14 W reg=0x1e selected_before=4 status=ACK data=ff
+  tx15 W reg=0x18 selected_before=4 status=ACK data=05
+  tx16 W reg=0x1c selected_before=5 status=ACK data=ff
+  tx17 W reg=0x1e selected_before=5 status=ACK data=ff
+  tx18 W reg=0x18 selected_before=5 status=ACK data=06
+  tx19 W reg=0x1c selected_before=6 status=ACK data=ff
+  tx20 W reg=0x1e selected_before=6 status=ACK data=ff
+  tx21 W reg=0x18 selected_before=6 status=ACK data=07
+  tx22 W reg=0x1c selected_before=7 status=ACK data=ff
+  tx23 W reg=0x1e selected_before=7 status=ACK data=ff
+  tx24 R reg=0x00 selected_before=7 status=ACK data=0000000000000000
+  final raw14_direction=input raw14_mode=high-z input_port1=0x00 expected_peer_bit7=1 observed=0
+  counterfactual raw14_direction=output input_port1=0xc0 peer_bit7=1
+CASE MAP-01 Port 2 four-bit hole shifts logical pins 20-39
+  logical=19 current_raw=19 correct_raw=19 current_bytes=00 00 08 00 00 00 00 00 correct_bytes=00 00 08 00 00 00 00 00
+  logical=20 current_raw=20 correct_raw=24 current_bytes=00 00 10 00 00 00 00 00 correct_bytes=00 00 00 01 00 00 00 00
+  logical=21 current_raw=21 correct_raw=25 current_bytes=00 00 20 00 00 00 00 00 correct_bytes=00 00 00 02 00 00 00 00
+  logical=35 current_raw=35 correct_raw=39 current_bytes=00 00 00 00 08 00 00 00 correct_bytes=00 00 00 00 80 00 00 00
+  logical=36 current_raw=36 correct_raw=40 current_bytes=00 00 00 00 10 00 00 00 correct_bytes=00 00 00 00 00 01 00 00
+  logical=39 current_raw=39 correct_raw=43 current_bytes=00 00 00 00 80 00 00 00 correct_bytes=00 00 00 00 00 08 00 00
+  logical20 current mask selects physical_outputs=0 (Port2 bit4 is a hole)
+  logical20 corrected mask selects physical_outputs=1 at raw24/Port3.0
+CASE MASK-01 Teensy target lowering of signed 32-bit 1 << i
+  i=30 target_mask=0x0000000040000000 output_bytes=00 00 00 40 00 00 00 00
+  i=31 target_mask=0xffffffff80000000 output_bytes=00 00 00 80 ff ff ff ff
+  i=32 target_mask=0x0000000000000000 output_bytes=00 00 00 00 00 00 00 00
+  i=33 target_mask=0x0000000000000000 output_bytes=00 00 00 00 00 00 00 00
+  i=39 target_mask=0x0000000000000000 output_bytes=00 00 00 00 00 00 00 00
+CASE I2C-01 short reads become valid-looking all-ones data
+  request=8 returned=1 packed=0xffffffffffffff12
+  request=8 returned=3 packed=0xffffffffff563412
+CASE I2C-02 failed port-select write retargets later writes
+  tx00 W reg=0x08 selected_before=0 status=ACK data=0002000000000000
+  tx01 W reg=0x18 selected_before=0 status=ACK data=00
+  tx02 W reg=0x1c selected_before=0 status=ACK data=ff
+  tx03 W reg=0x21 selected_before=0 status=ACK data=00
+  tx04 W reg=0x18 selected_before=0 status=NACK data=01
+  tx05 W reg=0x1c selected_before=0 status=ACK data=00
+  tx06 W reg=0x21 selected_before=0 status=ACK data=02
+  stale selected port=0 result: raw1_direction=output raw9_direction=input
+CASE REJECT-01 full latch rewrite alone is inert for inputs
+  physical_outputs=0 net_before=0 net_after=0
+CASE COMPOSE-01 POR output direction makes first latch rewrite live
+  after_latch_before_direction raw14=resistive-high raw15=strong-low net_level=0
+CASE REJECT-02 stale strong mode is high-z while direction=input
+  raw5 drive=high-z
+CASE REJECT-03 last-written-one changes drive mode without clear
+  raw5 mode_after_pull_down_write=resistive-low
+CASE REJECT-04 factory POR state has no opposed strong drivers
+  raw5=resistive-high raw6=resistive-high contention=no
+CASE REJECT-05 current correctly addressed ports meet 2.485 ms access time
+  current_port4_to_sample=3150.0us counterfactual_port5_to_sample=2430.0us
+ALL REPRO ASSERTIONS PASSED
