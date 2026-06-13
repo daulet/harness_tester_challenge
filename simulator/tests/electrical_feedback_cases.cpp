@@ -146,7 +146,8 @@ bool run_feedback_override_and_scl_attribution() {
     host_sim::Runtime runtime(board_model());
     const auto high =
         std::make_shared<FixedElectricalFeedback>(host_sim::ElectricalSnapshot{
-            host_sim::ElectricalLevel::High, host_sim::ElectricalLevel::High});
+            host_sim::ElectricalLevel::High, host_sim::ElectricalLevel::High,
+            host_sim::ElectricalLevel::Indeterminate, {}});
     runtime.set_electrical_feedback(high);
     bool ok = require(select_device_id() == 0 && runtime.now() == 190us,
                       "High/High feedback did not permit I2C START");
@@ -163,7 +164,8 @@ bool run_feedback_override_and_scl_attribution() {
   host_sim::Runtime runtime(board_model());
   const auto scl_low =
       std::make_shared<FixedElectricalFeedback>(host_sim::ElectricalSnapshot{
-          host_sim::ElectricalLevel::High, host_sim::ElectricalLevel::Low});
+          host_sim::ElectricalLevel::High, host_sim::ElectricalLevel::Low,
+          host_sim::ElectricalLevel::Indeterminate, {}});
   runtime.set_electrical_feedback(scl_low);
   const auto result = select_device_id();
   const auto &trace = runtime.i2c_trace();
@@ -196,7 +198,9 @@ bool run_peripheral_open_is_address_nack() {
   host_sim::Runtime runtime(model);
   runtime.set_electrical_feedback(std::make_shared<FixedElectricalFeedback>(
       host_sim::ElectricalSnapshot{host_sim::ElectricalLevel::High,
-                                   host_sim::ElectricalLevel::High}));
+                                   host_sim::ElectricalLevel::High,
+                                   host_sim::ElectricalLevel::Indeterminate,
+                                   {}}));
   const auto result = select_device_id();
   const auto &trace = runtime.i2c_trace();
   return require(result == 2 && runtime.now() == 100us,
@@ -211,7 +215,9 @@ bool run_invalid_line_not_masked_by_low_peer() {
   host_sim::Runtime runtime(board_model());
   runtime.set_electrical_feedback(std::make_shared<FixedElectricalFeedback>(
       host_sim::ElectricalSnapshot{host_sim::ElectricalLevel::Indeterminate,
-                                   host_sim::ElectricalLevel::Low}));
+                                   host_sim::ElectricalLevel::Low,
+                                   host_sim::ElectricalLevel::Indeterminate,
+                                   {}}));
   try {
     static_cast<void>(select_device_id());
   } catch (const std::runtime_error &error) {

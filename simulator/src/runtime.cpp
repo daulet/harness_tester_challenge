@@ -48,6 +48,8 @@ constexpr std::size_t kTeensySerial1RxCapacity = 63;
 constexpr std::uint32_t kDefaultI2cClockHz = 100000;
 constexpr std::uint32_t kMaximumModeledI2cClockHz = 10000000;
 constexpr std::uint8_t kFileWriteMode = 0x01;
+constexpr std::size_t kRepresentativeHarnessDriver = 8;
+constexpr std::size_t kRepresentativeHarnessReceiver = 31;
 
 std::string format_number(long long value) { return std::to_string(value); }
 
@@ -143,6 +145,15 @@ std::uint64_t i2c_payload_bits(std::size_t byte_count) {
     throw std::overflow_error("I2C payload size overflow");
   }
   return static_cast<std::uint64_t>(byte_count) * kBitsPerByteWithAck;
+}
+
+bool input_register_requested(std::uint8_t first, std::uint8_t count) {
+  for (std::uint16_t offset = 0; offset < count; ++offset) {
+    if (static_cast<std::uint8_t>(first + offset) < 8) {
+      return true;
+    }
+  }
+  return false;
 }
 
 SimTime scaled_duration(std::size_t units, SimTime unit_time,
@@ -1054,6 +1065,9 @@ std::vector<std::uint8_t> Runtime::i2c_read(std::uint8_t address,
     return result;
   }
   expander_.accessed = true;
+  if (input_register_requested(expander_.register_pointer, quantity)) {
+    sample_expander_inputs();
+  }
   for (std::uint8_t index = 0; index < quantity; ++index) {
     result.push_back(read_expander_register(expander_.register_pointer++));
   }
@@ -1195,7 +1209,6 @@ void Runtime::reset_expander_state(bool reset_asserted) {
 
 std::uint8_t Runtime::read_expander_register(std::uint8_t reg) {
   if (reg < 8) {
-    expander_.last_inputs = model_.resolve_inputs(harness_, expander_drives());
     return static_cast<std::uint8_t>(expander_.last_inputs >> (reg * 8));
   }
   if (reg >= 0x08 && reg < 0x10) {
@@ -1214,6 +1227,30 @@ std::uint8_t Runtime::read_expander_register(std::uint8_t reg) {
     return 0x60;
   }
   return 0;
+}
+
+void Runtime::sample_expander_inputs() {
+  const auto drives = expander_drives();
+  auto inputs = model_.resolve_inputs(harness_, drives);
+  if (electrical_feedback_) {
+    const auto snapshot =
+        electrical_feedback_->solve(expander_analog_stimulus(drives));
+    for (const auto &[index, level] : snapshot.expander_inputs) {
+      if (index >= kExpanderPins) {
+        throw std::runtime_error(
+            "expander electrical feedback returned an invalid raw bit");
+      }
+      if (level == ElectricalLevel::High) {
+        inputs |= std::uint64_t{1} << index;
+      } else if (level == ElectricalLevel::Low) {
+        inputs &= ~(std::uint64_t{1} << index);
+      } else {
+        throw std::runtime_error(
+            "expander input solved to an unsupported electrical level");
+      }
+    }
+  }
+  expander_.last_inputs = inputs;
 }
 
 void Runtime::write_expander_register(std::uint8_t reg, std::uint8_t value) {
@@ -1258,6 +1295,47 @@ std::array<ExpanderPinDrive, kExpanderPins> Runtime::expander_drives() const {
     }
   }
   return drives;
+}
+
+AnalogStimulus Runtime::expander_analog_stimulus(
+    const std::array<ExpanderPinDrive, kExpanderPins> &drives) const {
+  const auto raw_index = [this](std::size_t logical_index) {
+    const auto &channel = model_.channel(logical_index);
+    return channel.expander_port * 8 + channel.expander_bit;
+  };
+  const auto driver_index = raw_index(kRepresentativeHarnessDriver);
+  const auto receiver_index = raw_index(kRepresentativeHarnessReceiver);
+  if (driver_index >= kExpanderPins || receiver_index >= kExpanderPins) {
+    throw std::runtime_error(
+        "representative harness channel mapped outside the expander");
+  }
+
+  const auto &driver = drives[driver_index];
+  const auto &receiver = drives[receiver_index];
+  const bool strong_output =
+      !driver.is_input &&
+      (driver.drive_mode == DriveMode::Strong ||
+       driver.drive_mode == DriveMode::SlowStrong);
+  const bool disabled_pulldown =
+      driver.is_input && driver.drive_mode == DriveMode::PullDown;
+  if (!strong_output && !disabled_pulldown) {
+    throw std::runtime_error(
+        "representative harness driver uses an unsupported drive mode");
+  }
+  if (!receiver.is_input || receiver.drive_mode != DriveMode::PullDown) {
+    throw std::runtime_error(
+        "representative harness receiver must be a pull-down input");
+  }
+
+  auto stimulus = analog_stimulus();
+  stimulus.harness_drive_voltage = driver.output_value ? 3.3 : 0.0;
+  stimulus.expander_harness_drive_enabled = strong_output;
+  stimulus.expander_harness_receiver_pulldown = true;
+  stimulus.expander_harness_connected =
+      harness_.connected(kRepresentativeHarnessDriver,
+                         kRepresentativeHarnessReceiver);
+  stimulus.expander_harness_receiver_bit = receiver_index;
+  return stimulus;
 }
 
 HardwareSerial Serial(HardwareSerial::Port::Debug);

@@ -343,9 +343,12 @@ private:
   std::pair<bool, bool> physical_i2c_lines_stuck_low() const;
   bool parsed_i2c_sda_stuck_low() const;
   void reset_expander_state(bool reset_asserted);
+  void sample_expander_inputs();
   std::uint8_t read_expander_register(std::uint8_t reg);
   void write_expander_register(std::uint8_t reg, std::uint8_t value);
   std::array<ExpanderPinDrive, kExpanderPins> expander_drives() const;
+  AnalogStimulus expander_analog_stimulus(
+      const std::array<ExpanderPinDrive, kExpanderPins> &drives) const;
   void transmit_serial1(const std::string &bytes, unsigned long baud);
   void schedule_uart(UartDriver driver,
                      const std::string &bytes,

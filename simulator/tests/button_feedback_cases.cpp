@@ -49,7 +49,7 @@ bool require(bool condition, const std::string &message) {
 
 host_sim::ElectricalSnapshot button_snapshot(host_sim::ElectricalLevel level) {
   return {host_sim::ElectricalLevel::High, host_sim::ElectricalLevel::High,
-          level};
+          level, {}};
 }
 
 class FixedButtonFeedback final : public host_sim::ElectricalFeedback {

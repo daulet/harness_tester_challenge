@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <map>
 #include <optional>
 #include <string>
@@ -70,6 +71,10 @@ struct AnalogStimulus {
   std::optional<bool> i2c_sda_low;
   std::optional<bool> i2c_scl_low;
   std::optional<bool> button_contact_closed;
+  std::optional<bool> expander_harness_drive_enabled;
+  std::optional<bool> expander_harness_receiver_pulldown;
+  std::optional<bool> expander_harness_connected;
+  std::optional<std::size_t> expander_harness_receiver_bit;
 };
 
 enum class ElectricalLevel {
@@ -105,6 +110,7 @@ struct ElectricalSnapshot {
   ElectricalLevel i2c_sda = ElectricalLevel::Indeterminate;
   ElectricalLevel i2c_scl = ElectricalLevel::Indeterminate;
   ElectricalLevel button_test = ElectricalLevel::Indeterminate;
+  std::map<std::size_t, ElectricalLevel> expander_inputs;
 };
 
 class ElectricalFeedback {

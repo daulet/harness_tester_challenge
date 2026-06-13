@@ -694,6 +694,19 @@ target_compile_options(button_feedback_cases PRIVATE
   -Wpedantic
 )
 
+add_executable(expander_feedback_cases
+  simulator/tests/expander_feedback_cases.cpp
+)
+target_link_libraries(expander_feedback_cases PRIVATE host_simulator)
+target_compile_definitions(expander_feedback_cases PRIVATE
+  HOST_SIM_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
+)
+target_compile_options(expander_feedback_cases PRIVATE
+  -Wall
+  -Wextra
+  -Wpedantic
+)
+
 add_blocker_peeling_led_case(blocker_p8 P8)
 add_blocker_peeling_led_case(
   blocker_p8_without_modes P8_without_FW_LED_OUTPUT_MODES)
@@ -730,6 +743,10 @@ add_test(
 set_tests_properties(
   electrical_button_feedback_ngspice
   PROPERTIES SKIP_RETURN_CODE 77
+)
+add_test(
+  NAME electrical_expander_feedback_runtime
+  COMMAND expander_feedback_cases
 )
 add_test(NAME blocker_peeling_oracle COMMAND oracle_cases)
 add_test(

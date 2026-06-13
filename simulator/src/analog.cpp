@@ -879,7 +879,7 @@ NgSpiceElectricalFeedback::solve(const AnalogStimulus &stimulus) const {
   const auto observation = simulator_.run(fixture_, stimulus);
   return {observation.level("i2c_sda_high_v"),
           observation.level("i2c_scl_high_v"),
-          observation.level("button_test_v")};
+          observation.level("button_test_v"), {}};
 }
 
 } // namespace host_sim
